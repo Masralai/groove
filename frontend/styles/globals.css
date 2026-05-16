@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import './design-tokens.css';
+
+/* Base styles */
+* {
+  @apply border-box;
+}
+
+html {
+  @apply scroll-smooth;
+}
+
+body {
+  @apply bg-canvas-white text-midnight-ink antialiased;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+}
+
+#__next {
+  @apply min-h-screen flex flex-col;
+}
+
+/* Custom utility classes for DESIGN.md */
+.btn-primary {
+  @apply bg-plasma-teal-gradient text-canvas-white font-medium px-8 py-3 rounded-md 
+         hover:shadow-lg transition-shadow duration-200 
+         focus:outline-none focus:ring-2 focus:ring-plasma-teal-gradient focus:ring-offset-2;
+}
+
+.btn-secondary {
+  @apply bg-cloud-gray text-midnight-ink font-medium px-8 py-3 rounded-md border 
+         border-cloud-border hover:bg-cloud-gray/80 transition-all duration-200
+         focus:outline-none focus:ring-2 focus:ring-cloud-gray/50 focus:ring-offset-2;
+}
+
+.btn-ghost {
+  @apply bg-transparent text-midnight-ink font-medium px-4 py-2 border-b-2 border-midnight-ink/20 
+         hover:border-midnight-ink/50 transition-border duration-200
+         focus:outline-none focus:ring-2 focus:ring-midnight-ink/50 focus:ring-offset-2;
+}
+
+.card {
+  @apply bg-canvas-white rounded-xl p-6 shadow-lg border border-cloud-border;
+}
+
+.input {
+  @apply w-full px-4 py-3 border border-cloud-border rounded-md bg-canvas-white 
+         text-midnight-ink placeholder-slate-text/60 focus:outline-none 
+         focus:ring-2 focus:ring-plasma-teal-gradient focus:border-transparent;
+}
+
+.textarea {
+  @apply w-full px-4 py-3 border border-cloud-border rounded-md bg-canvas-white 
+         text-midnight-ink placeholder-slate-text/60 focus:outline-none 
+         focus:ring-2 focus:ring-plasma-teal-gradient focus:border-transparent 
+         min-h-[80px] resize-vertical;
+}
+
+.label {
+  @apply block text-sm font-medium text-midnight-ink mb-2;
+}
+
+.help-text {
+  @apply block text-xs text-slate-text mt-1;
+}
+
+.error-text {
+  @apply block text-xs text-red-600 mt-1;
+}
+
+.section-title {
+  @apply text-heading font-bold text-midnight-ink mb-4 tracking-[-0.5px];
+}
+
+.section-subtitle {
+  @apply text-subheading font-semibold text-midnight-ink mb-6;
+}
+
+.body-text {
+  @apply text-button text-slate-text leading-[1.5];
+}
+
+.body-text-prominent {
+  @apply text-button text-midnight-ink leading-[1.5];
+}
+
+.nav-link {
+  @apply text-button font-medium text-midnight-ink hover:underline transition-colors duration-200;
+}
+
+.badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+}
+
+.badge-primary {
+  @apply bg-plasma-teal-gradient/20 text-plasma-teal-gradient;
+}
+
+.badge-secondary {
+  @apply bg-cloud-gray/20 text-midnight-ink;
+}
+
+.badge-status-active {
+  @apply bg-green-500/20 text-green-600;
+}
+
+.badge-status-paused {
+  @apply bg-yellow-500/20 text-yellow-600;
+}
+
+.badge-status-completed {
+  @apply bg-blue-500/20 text-blue-600;
+}
+
+.chart-container {
+  @apply bg-canvas-white rounded-xl p-6 shadow-lg border border-cloud-border;
+}
+
+/* Animation utilities */
+.transition-all {
+  @apply transition-all duration-200 ease-in-out;
+}
+
+.transition-transform {
+  @apply transition-transform duration-200 ease-in-out;
+}
+
+/* Hover utilities */
+.hover-lift {
+  @hover:translate-y-[-2px];
+  @hover:shadow-md;
+}
+
+/* Focus utilities */
+.focus-visible-ring {
+  @focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-teal-gradient focus-visible:ring-offset-2;
+}
