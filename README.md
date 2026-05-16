@@ -27,17 +27,17 @@ The system consists of two main parts:
 ## Architecture
 
 ```
-┌────────────┐    ┌────────────────────────────┐    ┌──────────────┐
+┌────────────┐    ┌─────────────────────────────┐    ┌──────────────┐
 │  Next.js   │    │         FastAPI             │    │  PostgreSQL  │
 │  :3000     │───▶│         :8000               │───▶│  :5432       │
 │            │    │                             │    │              │
 │  Dashboard │    │  Fetch Router  Chat Router  │    │  analytics   │
 │  Chat Page │    │  DataSyncSvc   LLM Agent    │    │  (4 tables)  │
-└────────────┘    │  MetaAPISvc    SQL Validator │    └──────────────┘
-                   │  Config (YAML)               │
-                   │  APScheduler                 │    ┌──────────────┐
-                   │                              │───▶│  MongoDB     │
-                   └────────────────────────────┘    │  :27017      │
+└────────────┘    │  MetaAPISvc    SQL Validator│    └──────────────┘
+                  │  Config (YAML)              │
+                  │  APScheduler                │    ┌──────────────┐
+                  │                             │───▶│  MongoDB     │
+                  └─────────────────────────────┘    │  :27017      │
                                                      │  raw staging │
                                                      └──────────────┘
 ```
@@ -200,54 +200,6 @@ Test suite includes:
 - Unit tests for SQL validation
 - Integration tests for full chat flow
 
-## Project Status
-
-Based on the implementation plan in HANDOVER.md:
-
-### ✅ Completed (Phase 1: Project Scaffold + Config)
-- Project directory structure
-- Configuration management
-- FastAPI application setup
-- Database connectivity
-- Docker configuration
-- Dependencies
-- Basic test suite
-- Meta API service foundation
-
-### 🔄 In Progress (Phase 2: Meta API + Data Sync)
-- MetaAPI Service implementation with facebook-business SDK
-- Rate limiting and error handling
-- Basic test coverage for MetaAPI service
-
-### ⏳ Not Started
-- Phase 3: Read APIs
-- Phase 4: LLM Agent + Chat
-- Phase 5: Frontend
-- Phase 6: Documentation
-
-## Future Work
-
-Following the implementation plan:
-
-### Phase 3: Read APIs
-- Implement GET endpoints for campaigns, ad sets, ads, and insights
-- Add filtering and pagination capabilities
-
-### Phase 4: LLM Agent + Chat
-- Implement LLM Agent Service with Gemini integration
-- Create SQL Validator with multi-layer protection
-- Build chat endpoint with orchestrator
-- Add error handling and clarification logic
-
-### Phase 5: Frontend
-- Use `frontend-design` skill to generate DESIGN.md
-- Build Next.js app with Dashboard and Chat pages
-- Add frontend service to docker-compose.yml
-
-### Phase 6: Documentation
-- Use `create-readme` skill for final README generation
-- Create DESIGN.md with component tree, layout, color palette, etc.
-
 ## Gotchas & Notes
 
 1. **Meta API creds**: Needed for `POST /api/fetch` to work. Without them, the chat can still answer based on seeded/empty DB data.
@@ -258,10 +210,3 @@ Following the implementation plan:
 6. **Frontend DESIGN.md**: Use `frontend-design` skill when implementing. File goes in `frontend/DESIGN.md`.
 7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. Acceptable latency (3-4s total) for single-user tool.
 8. **Production PostgreSQL user**: For security, use a dedicated read-only user for the LLM agent service (see DECISIONS.md #11).
-
-## License
-
-[Add license information here if applicable]
-
----
-*Last updated: May 16, 2026*

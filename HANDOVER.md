@@ -38,6 +38,13 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 - API endpoints for triggering data sync (manual and status)
 - APScheduler configuration for daily automated sync
 
+**Phase 3: Read APIs** - COMPLETED
+- GET /api/campaigns endpoint with status filtering and pagination
+- GET /api/ads endpoint with campaign_id and status filtering
+- GET /api/insights endpoint with date range and campaign filtering
+- PostgreSQL repository with read operations
+- Comprehensive test suite for new endpoints
+
 ## Architecture
 
 ```
@@ -154,7 +161,7 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 | RED | Scheduler fires daily sync | APScheduler integration |
 | GREEN | APScheduler in FastAPI lifespan with advisory lock | |
 
-### Phase 3: Read APIs - NEXT TO IMPLEMENT
+### Phase 3: Read APIs - COMPLETED
 
 **Skills:** `supabase-postgres-best-practices` for query perf
 
@@ -165,7 +172,7 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 | RED | GET /api/insights with date range + campaign filter | Filtered query works |
 | GREEN | insights endpoint with query params | |
 
-### Phase 4: LLM Agent + Chat
+### Phase 4: LLM Agent + Chat - NEXT TO IMPLEMENT
 
 **Skills:** `supabase-postgres-best-practices` for query injection prevention patterns
 
@@ -182,13 +189,15 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 
 ### Phase 5: Frontend
 
-**Skills:** `frontend-design` → generates DESIGN.md, then builds components; `ui-ux-pro-max` for component architecture; `high-end-visual-design` for premium styling; `framer-motion-animator` for chat animations
+**Skills:** `ui-ux-pro-max` for component architecture; `high-end-visual-design` for premium styling; `framer-motion-animator` for chat animations
+*Note: DESIGN.md manually adapted from existing Grafbase reference to fit Meta Ads pipeline requirements*
 
 | Step | What |
 |------|------|
-| 1 | Load frontend-design skill → generate DESIGN.md |
-| 2 | Next.js app with Dashboard (`/`) + Chat (`/chat`) pages |
-| 3 | Dockerfile for frontend, add to docker-compose.yml |
+| 1 | Adapt DESIGN.md for Meta Ads dashboard (`/`) and chat (`/chat`) pages |
+| 2 | Implement Next.js app with Dashboard (`/`) + Chat (`/chat`) pages using adapted design |
+| 3 | Add Dockerfile for frontend, add to docker-compose.yml |
+| 4 | Implement API integration with backend endpoints (GET `/api/campaigns`, GET `/api/insights`, POST `/api/chat`) |
 
 ### Phase 6: Documentation
 
@@ -262,6 +271,12 @@ curl http://localhost:8000/api/fetch/status
 # Check campaigns (will be empty until sync runs)
 curl http://localhost:8000/api/campaigns
 
+# Check ads (will be empty until sync runs)
+curl http://localhost:8000/api/ads
+
+# Check insights (will be empty until sync runs)
+curl http://localhost:8000/api/insights
+
 # Chat (will return error without Gemini API key or data)
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
@@ -280,4 +295,4 @@ docker compose exec backend pytest
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
 6. **Frontend DESIGN.md**: Use `frontend-design` skill when implementing. File goes in `frontend/DESIGN.md`.
 7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. Acceptable latency (3-4s total) for single-user tool.
-8. **Phase 2 complete**: Data synchronization pipeline is implemented and ready for testing. Next phase is implementing Read APIs (GET endpoints).
+8. **Phase 3 complete**: Read APIs are implemented and tested. Next phase is implementing LLM Agent + Chat functionality.
