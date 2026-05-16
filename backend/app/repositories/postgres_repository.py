@@ -1,13 +1,13 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import select, text, and_
 from app.models.postgres import Campaign, AdSet, Ad, Insight
 import logging
 
 logger = logging.getLogger(__name__)
 
 class PostgresRepository:
-    """Repository for PostgreSQL upsert operations."""
+    """Repository for PostgreSQL operations."""
     
     async def upsert_campaigns(self, db: AsyncSession, campaigns: List[Dict[str, Any]]) -> int:
         """Upsert campaigns into PostgreSQL."""
@@ -189,3 +189,129 @@ class PostgresRepository:
         await db.commit()
         logger.info(f"Upserted {upserted} insights into PostgreSQL")
         return upserted
+
+    # Read operations for Phase 3
+    async def get_campaigns(
+        self, 
+        db: AsyncSession, 
+        status: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """Get campaigns with optional filtering and pagination."""
+        query = select(Campaign)
+        
+        if status:
+            query = query.where(Campaign.status == status)
+            
+        query = query.offset(offset).limit(limit)
+        result = await db.execute(query)
+        campaigns = result.scalars().all()
+        
+        # Convert to list of dictionaries
+        return [
+            {
+                "id": campaign.id,
+                "name": campaign.name,
+                "status": campaign.status,
+                "objective": campaign.objective,
+                "daily_budget": float(campaign.daily_budget) if campaign.daily_budget else None,
+                "lifetime_budget": float(campaign.lifetime_budget) if campaign.lifetime_budget else None,
+                "created_time": campaign.created_time.isoformat() if campaign.created_time else None,
+                "start_time": campaign.start_time.isoformat() if campaign.start_time else None,
+                "stop_time": campaign.stop_time.isoformat() if campaign.stop_time else None,
+                "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
+                "updated_at": campaign.updated_at.isoformat() if campaign.updated_at else None
+            }
+            for campaign in campaigns
+        ]
+    
+    async def get_ads(
+        self, 
+        db: AsyncSession, 
+        campaign_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """Get ads with optional filtering and pagination."""
+        query = select(Ad)
+        
+        if campaign_id:
+            # Join with ad_sets to filter by campaign_id
+            query = query.join(AdSet, Ad.ad_set_id == AdSet.id).where(AdSet.campaign_id == campaign_id)
+            
+        if status:
+            query = query.where(Ad.status == status)
+            
+        query = query.offset(offset).limit(limit)
+        result = await db.execute(query)
+        ads = result.scalars().all()
+        
+        # Convert to list of dictionaries
+        return [
+            {
+                "id": ad.id,
+                "ad_set_id": ad.ad_set_id,
+                "name": ad.name,
+                "status": ad.status,
+                "creative": ad.creative,
+                "created_time": ad.created_time.isoformat() if ad.created_time else None,
+                "created_at": ad.created_at.isoformat() if ad.created_at else None,
+                "updated_at": ad.updated_at.isoformat() if ad.updated_at else None
+            }
+            for ad in ads
+        ]
+    
+    async def get_insights(
+        self, 
+        db: AsyncSession, 
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        campaign_id: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """Get insights with optional filtering and pagination."""
+        query = select(Insight)
+        
+        # Apply date filters
+        if date_from:
+            query = query.where(Insight.date >= date_from)
+        if date_to:
+            query = query.where(Insight.date <= date_to)
+            
+        # Apply campaign filter by joining through ads and ad_sets
+        if campaign_id:
+            query = query.join(Ad, Insight.ad_id == Ad.id)\
+                        .join(AdSet, Ad.ad_set_id == AdSet.id)\
+                        .where(AdSet.campaign_id == campaign_id)
+        
+        query = query.offset(offset).limit(limit)
+        result = await db.execute(query)
+        insights = result.scalars().all()
+        
+        # Convert to list of dictionaries
+        return [
+            {
+                "id": insight.id,
+                "ad_id": insight.ad_id,
+                "date": insight.date.isoformat() if insight.date else None,
+                "impressions": insight.impressions,
+                "clicks": insight.clicks,
+                "spend": float(insight.spend) if insight.spend else None,
+                "reach": insight.reach,
+                "frequency": float(insight.frequency) if insight.frequency else None,
+                "ctr": float(insight.ctr) if insight.ctr else None,
+                "cpc": float(insight.cpc) if insight.cpc else None,
+                "cpm": float(insight.cpm) if insight.cpm else None,
+                "conversions": insight.conversions,
+                "conversion_value": float(insight.conversion_value) if insight.conversion_value else None,
+                "created_at": insight.created_at.isoformat() if insight.created_at else None,
+                "updated_at": insight.updated_at.isoformat() if insight.updated_at else None
+            }
+            for insight in insights
+        ]
+
+# Global instance
+postgres_repository = PostgresRepository()

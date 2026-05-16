@@ -96,3 +96,6 @@ class TransformPipeline:
     def transform_insights(raw_insights: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Transform multiple insights."""
         return [transform_insight(insight) for insight in raw_insights]
+
+# Global instance
+transform_pipeline = TransformPipeline()
