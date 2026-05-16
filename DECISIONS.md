@@ -289,11 +289,11 @@ engine = create_async_engine(
 
 ## 15. GraphQL (Nice-to-Have from JD)
 
-**Question:** "Meta Marketing API has a GraphQL endpoint. Why REST? GraphQL could fetch campaigns + insights in one call."
+Question: "Meta Marketing API has a GraphQL endpoint. Why REST? GraphQL could fetch campaigns + insights in one call."
 
-**Decision:** Rejected for this implementation. Using REST with `facebook_business` SDK.
+Decision: Rejected for this implementation. Using REST with `facebook_business` SDK.
 
-**Rationale:**
+Rationale:
 
 - **Stability**: The SDK is battle-tested, well-documented, handles auth and pagination out of the box
 - **Dev speed**: Less custom HTTP/pagination code — faster to implement
@@ -305,3 +305,27 @@ engine = create_async_engine(
 - Could batch campaigns + insights into 1-2 calls, reducing N+1 round-trips
 - Worth pursuing if multi-account support or real-time querying is needed
 - Not included in this implementation to keep scope focused and predictable
+
+---
+
+## 16. LLM Framework Choice: Direct SDK vs. Langchain/LlamaIndex
+
+Question: "Why use the raw Gemini API via `google-genai-sdk` instead of LLM frameworks like Langchain or LlamaIndex which offer abstractions, chains, and agents?"
+
+Decision: Use direct Gemini SDK (`google-genai-sdk`) without additional LLM frameworks.
+
+Rationale:
+
+- **Security Control**: The LLM agent generates SQL that must pass through strict validation layers (comment stripping, single-statement enforcement, whitelist/blacklist patterns, read-only transactions). Direct SDK usage provides precise control over prompt engineering and response handling, critical for maintaining these security guarantees. Framework abstractions could obscure the exact prompts being sent, complicating security audits.
+  
+- **Use Case Simplicity**: The LLM usage is strictly defined: text-to-SQL generation → execution → result summarization (2-call pattern). There's no need for complex chains, agents, retrieval augmentation, or multi-step reasoning that frameworks like Langchain/LlamaIndex are designed to provide. Using a heavyweight framework adds unnecessary complexity for this narrow, well-defined flow.
+  
+- **Transparency & Debugging**: The system returns both `answer` and `sql` in chat responses for transparency and trust-building. Direct SDK usage makes it trivial to log, inspect, and debug the exact prompts sent to Gemini and responses received, which is essential for the ambiguity handling and clarification logic. Framework layers would complicate this transparency.
+  
+- **Performance Predictability**: With direct SDK usage, latency characteristics are predictable and optimizable (as analyzed in Decision #7). Framework introductions add abstraction overhead that could impact the 3-4s round-trip time without providing proportional benefits for this use case.
+  
+- **Alignment with Specifications**: All technical documentation consistently specifies `google-genai-sdk` as the LLM layer (PRD.md tech stack, HANDOVER.md dependencies, Implementation Plan). Deviating to frameworks would require re-justification and could introduce inconsistencies with the approved architecture.
+  
+- **Operational Simplicity**: One fewer dependency to manage, version, secure, and troubleshoot. Reduces potential attack surface from transitive dependencies and aligns with the principle of using the minimal toolset necessary to fulfill requirements.
+
+**Note**: This decision does not preclude evaluating LLM frameworks in future phases if requirements evolve to include complex agent-based workflows, multi-modal interactions, or sophisticated retrieval-augmented generation patterns that justify the added complexity.

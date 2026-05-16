@@ -11,11 +11,25 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 | File | Contents |
 |------|----------|
 | `PRD.md` | Full product requirements — pipeline, chatbot, architecture, data model, API design, testing, infra, documentation |
-| `DECISIONS.md` | 15 architecture decisions with rationale — MongoDB vs JSONB, incremental sync, PG advisory lock, SQL injection, Alembic, GraphQL rejection, etc. |
+| `DECISIONS.md` | 16 architecture decisions with rationale — MongoDB vs JSONB, incremental sync, PG advisory lock, SQL injection, Alembic, GraphQL rejection, LLM framework choice, etc. |
+| `DESIGN.md` | Frontend design reference (Note: This appears to be from a different project and will be replaced) |
 
 ### Code Written
 
-Nothing yet. Project is at pre-implementation phase with fully validated design.
+**Phase 1: Project Scaffold + Config** - COMPLETED
+- Project directory structure (backend/, frontend/, config/, tests/)
+- Configuration management (.env.example, config/sources.yaml, core/config.py)
+- FastAPI application setup (main.py)
+- Database connectivity (core/database.py)
+- Docker configuration (Dockerfile, docker-compose.yml)
+- Dependencies (requirements.txt)
+- Basic test suite (tests/test_config.py, tests/test_health.py)
+- Meta API service foundation (services/meta_api_service.py)
+
+**Phase 2: Meta API + Data Sync** - IN PROGRESS
+- MetaAPI Service implementation with facebook-business SDK
+- Rate limiting and error handling
+- Basic test coverage for MetaAPI service
 
 ## Architecture
 

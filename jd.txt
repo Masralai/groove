@@ -1,0 +1,32 @@
+Hi Devdeep,
+I got your resume from your placement cell and we'd like to invite you for Round 1 of our interview process.
+
+🚀 Hiring Developer Interns (Backend / Data)
+We're looking for interns to work on real backend systems.
+Role:
+1. Build async Python services
+2. Integrate third-party APIs
+3. Create ETL-style data pipelines
+4. Work with API docs & YAML configs
+
+Must Have:
+1. Python 3.11+ (async/await, type hints, Pydantic)
+2. Basic FastAPI
+3. PostgreSQL & MongoDB fundamentals
+4. REST APIs (JSON, OAuth / Bearer tokens)
+5. YAML handling
+6. Git (branches, commits, PRs)
+
+Nice to Have:
+1. GraphQL (Shopify Admin API is a plus)
+2. OAuth 2.0, Docker, pytest
+3. React / JS basics
+
+Bonus:
+1. Exposure to LLMs, agentic workflows, or big data
+2. 💰 Stipend will be provided.
+3. Hands-on role. Real systems. Real ownership.
+
+Please share your latest CV + a slot to talk (if interested) + GitHub by replying here.
+Contact: 8800675735 (Hardik, Cofounder)
+Our web page: https://databridgeai.in/
