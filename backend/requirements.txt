@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+asyncpg
+motor
+facebook-business
+google-generativeai
+pydantic-settings
+pyyaml
+alembic
+apscheduler
+httpx
+sqlparse
+pytest
+pytest-asyncio
+testcontainers[postgres,mongodb]
+respx
