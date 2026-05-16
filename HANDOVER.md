@@ -26,10 +26,17 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 - Basic test suite (tests/test_config.py, tests/test_health.py)
 - Meta API service foundation (services/meta_api_service.py)
 
-**Phase 2: Meta API + Data Sync** - IN PROGRESS
+**Phase 2: Meta API + Data Sync** - COMPLETED
 - MetaAPI Service implementation with facebook-business SDK
 - Rate limiting and error handling
 - Basic test coverage for MetaAPI service
+- MongoDB integration (models, repository)
+- Transform pipeline for converting raw API data to normalized records
+- Data sync service orchestrating fetch → MongoDB → transform → PostgreSQL
+- PostgreSQL SQLAlchemy models for campaigns, ad_sets, ads, insights
+- Upsert functionality with ON CONFLICT DO UPDATE
+- API endpoints for triggering data sync (manual and status)
+- APScheduler configuration for daily automated sync
 
 ## Architecture
 
@@ -117,7 +124,7 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 
 ## Implmentation Plan (TDD Vertical Slices)
 
-### Phase 1: Project Scaffold + Config
+### Phase 1: Project Scaffold + Config - COMPLETED
 
 **Skills:** None required (general scaffolding)
 
@@ -128,7 +135,7 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 | RED | FastAPI app starts and /health returns OK | App boots |
 | GREEN | main.py, database.py, Dockerfile, docker-compose.yml (postgres, mongodb, backend) | |
 
-### Phase 2: Meta API + Data Sync
+### Phase 2: Meta API + Data Sync - COMPLETED
 
 **Skills:** `docker-expert` if optimizing containers, `supabase-postgres-best-practices` for upsert/index design
 
@@ -147,7 +154,7 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 | RED | Scheduler fires daily sync | APScheduler integration |
 | GREEN | APScheduler in FastAPI lifespan with advisory lock | |
 
-### Phase 3: Read APIs
+### Phase 3: Read APIs - NEXT TO IMPLEMENT
 
 **Skills:** `supabase-postgres-best-practices` for query perf
 
@@ -246,13 +253,16 @@ docker compose up --build
 # Check health
 curl http://localhost:8000/health
 
-# Trigger sync
+# Trigger sync (requires valid Meta API credentials)
 curl -X POST http://localhost:8000/api/fetch
 
-# Check campaigns
+# Check sync status
+curl http://localhost:8000/api/fetch/status
+
+# Check campaigns (will be empty until sync runs)
 curl http://localhost:8000/api/campaigns
 
-# Chat
+# Chat (will return error without Gemini API key or data)
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"query": "Which campaign spent the most last week?"}'
@@ -270,3 +280,4 @@ docker compose exec backend pytest
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
 6. **Frontend DESIGN.md**: Use `frontend-design` skill when implementing. File goes in `frontend/DESIGN.md`.
 7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. Acceptable latency (3-4s total) for single-user tool.
+8. **Phase 2 complete**: Data synchronization pipeline is implemented and ready for testing. Next phase is implementing Read APIs (GET endpoints).
