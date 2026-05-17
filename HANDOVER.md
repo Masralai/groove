@@ -57,13 +57,29 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 - Design system tokens from DESIGN.md implemented via Tailwind v4 `@theme` block
 - Reusable component library (KPICard, EmptyState, LoadingState)
 - Landing page (`/`) — Hero with CTAs, feature cards, footer
-- Dashboard page (`/dashboard`) — KPI summary cards (4 metrics) + campaigns table with status badges, pagination, sync button
+- Dashboard page (`/dashboard`) — "use client" with live API data (4 KPIs from insights, campaigns table with filter/pagination, sync button)
 - Chat page (`/chat`) — Full NL interface with message history, collapsible SQL blocks, loading/error states, recent queries sidebar
 - Sticky header navigation with logo and nav links
-- API proxy via next.config.ts rewrites (configurable `NEXT_PUBLIC_API_URL`)
+- API proxy via next.config.ts rewrites (configurable `API_URL` env var)
 - Accessibility: aria-labels, focus-visible rings, reduced-motion support, proper heading hierarchy
 - Micro-interactions: hover-lift on cards, 200ms transitions, loading skeletons, bounce animation for AI "thinking"
 - `.env.local` with backend URL for development
+- `Dockerfile` for production (multi-stage, standalone output)
+- `.dockerignore` excluding dev artifacts from builds
+- Frontend service in `docker-compose.yml` with build arg for API URL
+
+**Phase 5.5: Bug Fixes + Full-Stack Runnable** - COMPLETED
+
+| Fix | Files | Description |
+|-----|-------|-------------|
+| Runtime bug 1 | `core/config.py` | `settings.meta_ads` now populated from YAML config on module load, with graceful FileNotFoundError fallback |
+| Runtime bug 2 | `models/postgres.py` | Added `UniqueConstraint(ad_id, date)` — without it the `ON CONFLICT` upsert would crash at runtime |
+| Runtime bug 3 | `services/llm_agent_service.py` | DDL in system prompt now matches actual model (TEXT PK instead of SERIAL, date NOT NULL) |
+| Path resolution | `core/config.py` | `load_yaml_config` goes up 4 dir levels (not 3) to find project-root `config/sources.yaml` |
+| Partitioning | `models/postgres.py` | Removed `PARTITION BY RANGE (date)` — PG requires partition columns in all unique constraints, and partitioning is unnecessary at this scale |
+| MongoDB healthcheck | `docker-compose.yml` | Fixed `mongo` → `mongosh` for MongoDB 7 compatibility |
+| `__init__.py` | 9 files | Added to all bare Python packages for proper module resolution |
+| Empty dir | `services/llm/` | Removed (contained no files) |
 
 ## Architecture
 
@@ -112,16 +128,16 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 
 ### API Endpoints
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/api/fetch` | Trigger manual data sync |
-| GET | `/api/fetch/status` | Last sync time, row counts, status |
-| GET | `/api/campaigns` | List campaigns (?status filter) |
-| GET | `/api/ads` | List ads (?campaign_id, ?status) |
-| GET | `/api/insights` | Query insights (?date_from, ?date_to, ?campaign_id) |
-| POST | `/api/chat` | `{ query: string } → { answer, sql, data }` |
-| GET | `/api/schema` | DDL introspection |
-| GET | `/health` | Health check |
+| Method | Path | Purpose | Status |
+|--------|------|---------|--------|
+| POST | `/api/fetch` | Trigger manual data sync | EXISTS |
+| GET | `/api/fetch/status` | Last sync time, row counts, status | EXISTS |
+| GET | `/api/campaigns` | List campaigns (?status filter) | EXISTS |
+| GET | `/api/ads` | List ads (?campaign_id, ?status) | EXISTS |
+| GET | `/api/insights` | Query insights (?date_from, ?date_to, ?campaign_id) | EXISTS |
+| POST | `/api/chat` | `{ query: string } → { answer, sql, data }` | EXISTS |
+| GET | `/api/schema` | DDL introspection | **MISSING** |
+| GET | `/api/health` | Health check (actual code — docs say `/health`) | EXISTS |
 
 ### Key Decisions (see DECISIONS.md for full detail)
 
@@ -141,13 +157,12 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 
 | Skill | When to Use |
 |-------|-------------|
-| `frontend-design` | Phase 5 — Design system extension or new page creation |
-| `framer-motion-animator` | Phase 5 post-completion — Chat message entrance animations, page transitions |
-| `high-end-visual-design` | Phase 5 post-completion — Premium animation/refinement pass |
-| `ui-ux-pro-max` | Phase 5 post-completion — Accessibility audit, component refinement |
-| `docker-expert` | Phase 5 pending — Dockerfile for frontend service |
-| `create-readme` | Phase 6 — Generate/update README.md |
-| `supabase-postgres-best-practices` | Any phase — Query optimization, indexing |
+| `frontend-design` | Design system extension or new page creation |
+| `framer-motion-animator` | Polish — Chat message entrance animations, page transitions |
+| `high-end-visual-design` | Polish — Premium animation/refinement pass |
+| `ui-ux-pro-max` | Polish — Accessibility audit, component refinement |
+| `create-readme` | Phase 6 — README.md needs completion with all sections |
+| `supabase-postgres-best-practices` | Query optimization, indexing |
 
 ## Implmentation Plan (TDD Vertical Slices)
 
@@ -215,13 +230,15 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 |------|--------|------|
 | 1 | COMPLETED | DESIGN.md adapted for Meta Ads dashboard (`/`) and chat (`/chat`) pages |
 | 2 | COMPLETED | Next.js 16 app with Tailwind v4, TypeScript, App Router implemented |
-| 3 | **PENDING** | Dockerfile for frontend — needs to be added to docker-compose.yml |
-| 4 | **PENDING** | API integration with live backend — chat page calls `/api/chat` via proxy but needs real backend running. Dashboard uses mock/static data currently |
+| 3 | COMPLETED | Dockerfile for frontend + added to docker-compose.yml (multi-stage standalone build) |
+| 4 | COMPLETED | Dashboard now fetches live data from `/api/campaigns` and `/api/insights`. Chat proxies through Next.js rewrites to backend. Verified end-to-end with full `docker compose up` |
 
 #### Frontend Structure
 
 ```
 frontend/
+├── .dockerignore                     # Excludes node_modules, .next, .env.local from builds
+├── Dockerfile                        # Multi-stage standalone build (ARG API_URL)
 ├── styles/
 │   ├── design-tokens.css            # DESIGN.md reference tokens
 │   └── globals.css                  # Tailwind v4 @theme + custom component classes
@@ -234,7 +251,7 @@ frontend/
 │       │   └── page.tsx             # Full chat interface ("use client")
 │       ├── dashboard/
 │       │   ├── layout.tsx            # Dashboard metadata (SEO)
-│       │   └── page.tsx             # KPI cards + campaigns table (server component)
+│       │   └── page.tsx             # KPI cards + campaigns table ("use client", live API)
 │       ├── globals.css               # Root Tailwind import
 │       ├── layout.tsx                # Root layout with Inter font + Header
 │       └── page.tsx                  # Landing page
@@ -242,8 +259,8 @@ frontend/
 │   ├── KPICard.tsx                   # Reusable metric card component
 │   ├── EmptyState.tsx                # Empty data state with action
 │   └── LoadingState.tsx              # Card + table skeleton loaders
-├── next.config.ts                    # API proxy rewrites → FastAPI :8000
-├── .env.local                        # NEXT_PUBLIC_API_URL=http://localhost:8000
+├── next.config.ts                    # output: standalone, API proxy → FastAPI :8000
+├── .env.local                        # API_URL=http://localhost:8000
 └── postcss.config.mjs                # Tailwind v4 PostCSS setup
 ```
 
@@ -274,7 +291,7 @@ frontend/
 | Route | Type | Features |
 |-------|------|----------|
 | `/` | Server component | Hero section, 3 feature cards, CTA, footer |
-| `/dashboard` | Server component | 4 KPI cards (TPC, Impressions, Clicks, CTR), campaigns table with status filter & pagination |
+| `/dashboard` | Client component | 4 live KPI cards aggregated from insights + campaigns table with status filter & pagination + sync button |
 | `/chat` | Client component | Message list, collapsible SQL blocks with copy, loading bounce animation, error states, recent queries sidebar, expand/fullscreen toggle |
 
 #### Accessibility
@@ -291,13 +308,25 @@ frontend/
 
 #### What Still Needs Work (for next agent)
 
-1. **Dockerfile for frontend** — Add Dockerfile and docker-compose service for the Next.js app
-2. **Live API integration** — Dashboard currently shows static mock data; needs to fetch from GET `/api/campaigns` and GET `/api/insights`
-3. **Chat API connection** — Chat page proxies POST `/api/chat` via Next.js rewrites; verify it works with running backend
-4. **Mobile optimization** — Test and fine-tune responsive breakpoints for 375px and landscape
-5. **Dark mode** — Not yet implemented; DESIGN.md is light-only but could be extended
-6. **Error boundaries** — Add React error boundaries for client-side rendering failures
-7. **Animations** — Chat message entrance animations, page transitions (consider framer-motion)
+**Sprint B: Backend Gaps**
+1. **`/api/schema` endpoint** — DDL introspection endpoint listed in PRD, not implemented. Simple approach: expose the DDL string from `llm_agent_service._get_schema_ddl()` at `GET /api/schema`. Better approach: introspect from SQLAlchemy metadata dynamically.
+2. **Health endpoint path** — Docs and README say `/health`, actual code registers it at `/api/health` (inside the `/api` prefix router). Fix by adding a root-level `app.get("/health")` in `main.py`.
+3. **`/api/fetch/status` returns placeholder** — Currently returns hardcoded zeroes. Should query a `sync_status` table or derive from MongoDB timestamps.
+
+**Sprint C: Frontend Polish**
+4. **Mobile optimization** — Test and fine-tune responsive breakpoints for 375px and landscape. Dashboard table needs horizontal scroll on small screens. Chat sidebar should collapse or become a bottom sheet on mobile.
+5. **Dark mode** — Not yet implemented; DESIGN.md is light-only but could be extended using CSS custom properties + `data-theme` attribute.
+6. **Error boundaries** — Add React error boundaries for client-side rendering failures on dashboard and chat pages.
+7. **Animations** — Chat message entrance animations, page transitions (consider framer-motion).
+
+**Sprint D: Documentation**
+8. **README.md** — Already exists but has stale content: says "Next.js 14" (should be 16), frontend setup says "when implemented" (update to reflect current state), missing frontend docker-compose instructions, missing DESIGN.md reference.
+
+**Sprint E: Tech Debt**
+9. **Alembic setup** — `alembic` is in `requirements.txt` and listed as a key decision (DECISIONS.md #14, HANDOVER.md Key Decisions), but there is no `alembic.ini`, no `alembic/` directory, no migration scripts. Tables are created at startup via `Base.metadata.create_all`. Should replace with proper Alembic migrations.
+10. **`google.generativeai` deprecated** — The package shows a FutureWarning at import time. Should migrate to the new `google.genai` package.
+11. **Gemini model name** — Currently hardcoded as `gemini-1.5-flash` in `llm_agent_service.py`. The API rejects this model name on some API versions — may need updating to a supported model.
+12. **Naming inconsistency** — HANDOVER references `data_sync_service.py` but actual file is `sync_service.py`. Update either the HANDOVER or the filename.
 
 ### Phase 6: Documentation
 
@@ -371,18 +400,16 @@ eslint-config-next
 ## Verification
 
 ```bash
-# Start backend
+# Start all services (4 containers)
 docker compose up --build
 
 # Check health
-curl http://localhost:8000/health
+curl http://localhost:8000/api/health
 
-# In a separate terminal, start frontend
-cd frontend && npm run dev
+# Frontend
+open http://localhost:3000
 
-# Frontend will be at http://localhost:3000
-
-# Trigger sync (requires valid Meta API credentials)
+# Trigger sync (requires valid Meta API credentials in .env)
 curl -X POST http://localhost:8000/api/fetch
 
 # Check sync status
@@ -402,6 +429,9 @@ curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"query": "Which campaign spent the most last week?"}'
 
+# All endpoints also available via frontend proxy on :3000
+curl http://localhost:3000/api/health
+
 # Run tests (inside container)
 docker compose exec backend pytest
 ```
@@ -413,8 +443,11 @@ docker compose exec backend pytest
 3. **APScheduler + multi-worker**: The PG advisory lock prevents double-fires. For production, use a dedicated scheduler container.
 4. **MongoDB vs JSONB kept separate** — not merged per PRD decision. If asked why, refer to DECISIONS.md #1.
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
-6. **Frontend done**: Next.js 16 with Tailwind v4. API proxy via rewrites. Static mock data on dashboard pending live integration. Chat page calls `/api/chat` which gets proxied to FastAPI.
+6. **Full stack runs via docker compose**: `docker compose up --build` starts all 4 services (postgres, mongodb, backend, frontend). Frontend at :3000 proxying API to backend at :8000.
 7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. Acceptable latency (3-4s total) for single-user tool.
-8. **Frontend design system**: DESIGN.md is the source of truth. Tailwind v4 `@theme` block in `styles/globals.css` implements it. Run `npm run dev` in `frontend/` for dev server.
-9. **No Dockerfile for frontend yet**: Frontend needs to be added to docker-compose.yml when ready. Currently runs via `cd frontend && npm run dev`.
-10. **Client component patterns**: Chat page uses `"use client"` for interactive state. Dashboard and Landing pages are server components. When converting dashboard to live data, consider using a client wrapper or async server component with fetch.
+8. **Frontend design system**: DESIGN.md is the source of truth. Tailwind v4 `@theme` block in `styles/globals.css` implements it.
+9. **Frontend Docker build**: Requires `API_URL` build arg (set in docker-compose.yml). The frontend `next.config.ts` reads this at build time for the rewrites destination. During `npm run dev` it reads from `.env.local`.
+10. **Client component patterns**: Chat page uses `"use client"` for interactive state. Dashboard is also `"use client"` (needs state for filters/pagination/sync). Landing page remains a server component.
+11. **Dashboard KPIs**: Computed client-side from `/api/insights` data (full fetch with `date_from=2024-01-01`). For large datasets, add a dedicated aggregate endpoint or server-side aggregation.
+12. **Insights model**: Uses `Text PK` (UUID string), not `SERIAL`. The `UniqueConstraint(ad_id, date)` enables the `ON CONFLICT` upsert. Partitioning was removed (conflicts with PG's requirement that partition columns appear in all unique constraints).
+13. **`settings.meta_ads`**: Now populated automatically from `config/sources.yaml` on import. Gracefully falls back to empty dict if YAML file is missing (useful for CI/testing).
