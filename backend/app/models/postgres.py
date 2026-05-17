@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, Numeric, Integer, DateTime, Date, Boolean, JSON
+from sqlalchemy import Column, Text, Numeric, Integer, DateTime, Date, Boolean, JSON, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 import uuid
@@ -65,7 +65,6 @@ class Insight(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Create unique constraint on ad_id and date
     __table_args__ = (
-        {'postgresql_partition_by': 'RANGE (date)'},  # Optional partitioning
+        UniqueConstraint('ad_id', 'date', name='uq_insights_ad_id_date'),
     )

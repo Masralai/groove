@@ -57,9 +57,9 @@ CREATE TABLE ads (
 );
 
 CREATE TABLE insights (
-    id SERIAL PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     ad_id TEXT REFERENCES ads(id),
-    date DATE,
+    date DATE NOT NULL,
     impressions INTEGER,
     clicks INTEGER,
     spend NUMERIC,
