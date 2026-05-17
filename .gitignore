@@ -99,6 +99,7 @@ Thumbs.db
 .env.example  # Keep this in repo as template
 logs/
 *.log
+*.txt
 tmp/
 temp/
 /tmp/
