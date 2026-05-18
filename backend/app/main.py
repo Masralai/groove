@@ -1,5 +1,4 @@
 import asyncio
-import sys
 from pathlib import Path
 
 from alembic.config import Config as AlembicConfig
@@ -13,14 +12,14 @@ from alembic import command as alembic_command
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.models.mongo import close_mongo_connection
-from app.services.sync_service import data_sync_service
 
 # ── Logging: bypass standard library completely ──────────────────────
 # uvicorn's dictConfig overrides the root logger.  Rather than fight it
 # we write directly to fd 1 via a thin wrapper.  os.write() is proven to
 # produce output visible in `docker compose logs` from every context.
 from app.core.fd_logger import FdLogger
+from app.models.mongo import close_mongo_connection
+from app.services.sync_service import data_sync_service
 
 logger = FdLogger("app.main")
 

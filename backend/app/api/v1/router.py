@@ -222,7 +222,7 @@ async def chat_with_data(
             quota_resp = _check_quota(sql_result)
             if quota_resp:
                 return quota_resp
-            logger.info(f"SQL generation failed, using text-only fallback")
+            logger.info("SQL generation failed, using text-only fallback")
             return await _text_fallback(user_query, sql_result)
 
         generated_sql = sql_result["sql"]

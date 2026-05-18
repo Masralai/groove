@@ -2,7 +2,6 @@ import os
 import traceback
 from datetime import datetime
 
-
 LOG_FORMAT = "[{asctime}] {level:5s}  {name:<35s} {message}"
 LEVEL_INFO = "INFO"
 LEVEL_WARNING = "WARNING"

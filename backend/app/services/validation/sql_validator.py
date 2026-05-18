@@ -2,7 +2,6 @@ import re
 
 import sqlparse
 
-from app.core.config import settings
 from app.core.fd_logger import FdLogger
 
 logger = FdLogger(__name__)
