@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import ThemeToggle from "./ThemeToggle";
-
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -18,7 +16,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-canvas-white border-b border-cloud-border">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-10 h-18 flex items-center justify-between">
         <div className="flex items-center space-x-8">
           <Link href="/" className="flex items-center space-x-2">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -46,7 +44,6 @@ export default function Header() {
           </nav>
         </div>
         <div className="flex items-center space-x-2">
-          <ThemeToggle />
           <Link href="/chat" className="btn-primary text-sm py-2 px-4 hidden md:inline-flex">
             Query Your Data
           </Link>

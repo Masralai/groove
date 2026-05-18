@@ -4,7 +4,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
-      <section className="relative py-20 md:py-32 px-6">
+      <section className="relative py-20 md:py-32 px-10">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-midnight-ink tracking-[-2px] md:tracking-[-3px] leading-[1.05] mb-6">
             Unlock your{" "}
@@ -29,12 +29,12 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-6 bg-cloud-gray/40">
+      <section className="py-24 px-10 bg-cloud-gray/40">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-midnight-ink text-center mb-16 tracking-[-1px]">
             How Groove Works
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             <div className="card text-center p-8 hover:shadow-lg transition-shadow duration-200">
               <div className="w-14 h-14 bg-gradient-to-br from-[#19a05f]/20 to-[#0d7f8c]/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <svg className="w-7 h-7 text-[#19a05f]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6">
+      <section className="py-24 px-10">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-midnight-ink mb-4 tracking-[-1px]">
             Ready to get started?
@@ -88,7 +88,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-cloud-border py-8 px-6">
+      <footer className="border-t border-cloud-border py-8 px-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <p className="text-sm text-slate-text">
             &copy; {new Date().getFullYear()} Groove. Built with Meta Marketing API.

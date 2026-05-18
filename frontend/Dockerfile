@@ -13,9 +13,12 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
 # Create non-root user
-RUN addgroup --system --gid 1001 nodegroup && \
-    adduser --system --uid 1001 --gid nodegroup nodeuser
+RUN addgroup -S -g 1001 nodegroup && \
+    adduser -S -u 1001 -G nodegroup nodeuser
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static

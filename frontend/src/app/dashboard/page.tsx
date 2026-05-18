@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import KPICard from "@/components/KPICard";
 import LoadingState from "@/components/LoadingState";
@@ -17,7 +17,6 @@ interface Campaign {
   created_time: string | null;
 }
 
-// Helpers now imported from @/lib/dashboard-utils
 
 export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -28,39 +27,58 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [offset, setOffset] = useState(0);
   const limit = 10;
+  const mountedRef = useRef(true);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 3;
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter !== "all") params.set("status", statusFilter);
-      params.set("offset", String(offset));
-      params.set("limit", String(limit));
+    retryCountRef.current = 0;
 
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const [campaignRes, insightsRes] = await Promise.all([
-        fetch(`/api/campaigns?${params}`),
-        fetch(`/api/insights?date_from=${thirtyDaysAgo}`),
-      ]);
+    const tryFetch = async (): Promise<void> => {
+      if (!mountedRef.current) return;
+      try {
+        const params = new URLSearchParams();
+        if (statusFilter !== "all") params.set("status", statusFilter);
+        params.set("offset", String(offset));
+        params.set("limit", String(limit));
 
-      if (!campaignRes.ok) throw new Error(`Campaigns API: ${campaignRes.status}`);
-      if (!insightsRes.ok) throw new Error(`Insights API: ${insightsRes.status}`);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const [campaignRes, insightsRes] = await Promise.all([
+          fetch(`/api/campaigns?${params}`),
+          fetch(`/api/insights?date_from=${thirtyDaysAgo}`),
+        ]);
 
-      const campaignData: Campaign[] = await campaignRes.json();
-      const insightData: InsightRow[] = await insightsRes.json();
+        if (!campaignRes.ok) throw new Error(`Campaigns API: ${campaignRes.status}`);
+        if (!insightsRes.ok) throw new Error(`Insights API: ${insightsRes.status}`);
 
-      setCampaigns(campaignData);
-      setKpiInsights(insightData);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load dashboard data");
-    } finally {
-      setLoading(false);
-    }
+        const campaignData: Campaign[] = await campaignRes.json();
+        const insightData: InsightRow[] = await insightsRes.json();
+
+        if (!mountedRef.current) return;
+        setCampaigns(campaignData);
+        setKpiInsights(insightData);
+        setLoading(false);
+      } catch (e) {
+        if (!mountedRef.current) return;
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current += 1;
+          await new Promise(r => setTimeout(r, 1000 * retryCountRef.current));
+          return tryFetch();
+        }
+        setError(e instanceof Error ? e.message : "Failed to load dashboard data");
+        setLoading(false);
+      }
+    };
+
+    await tryFetch();
   }, [statusFilter, offset]);
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchDashboardData();
+    return () => { mountedRef.current = false; };
   }, [fetchDashboardData]);
 
   const handleSync = async () => {
@@ -89,7 +107,7 @@ export default function DashboardPage() {
   const ctrChange = trendChange(kpis.ctr, kpis.ctr * 0.95);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-10 py-10 space-y-10">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-midnight-ink tracking-[-1px] leading-[1.1]">
@@ -115,7 +133,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             <KPICard
               title={`Total Spend (${datePrefix})`}
               value={formatCurrency(kpis.totalSpend)}
@@ -209,25 +227,25 @@ export default function DashboardPage() {
                   <table className="min-w-full divide-y divide-cloud-border" role="table">
                     <thead>
                       <tr className="bg-cloud-gray">
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
                           Campaign Name
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
                           Status
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
                           Objective
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
                           Daily Budget
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
                           Lifetime Budget
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
                           Created
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
@@ -235,10 +253,10 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-cloud-border">
                       {campaigns.map((campaign) => (
                         <tr key={campaign.id} className="hover:bg-cloud-gray/30 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-8 py-5 whitespace-nowrap">
                             <span className="text-sm font-medium text-midnight-ink">{campaign.name}</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-8 py-5 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(campaign.status)}`}>
                               {campaign.status.charAt(0) + campaign.status.slice(1).toLowerCase()}
                             </span>
@@ -266,7 +284,7 @@ export default function DashboardPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between px-6 py-3 border-t border-cloud-border bg-cloud-gray/30">
+                <div className="flex items-center justify-between px-8 py-4 border-t border-cloud-border bg-cloud-gray/30">
                   <p className="text-sm text-slate-text">
                     Showing <span className="font-medium text-midnight-ink">{campaigns.length}</span> campaign{campaigns.length !== 1 ? "s" : ""}
                   </p>

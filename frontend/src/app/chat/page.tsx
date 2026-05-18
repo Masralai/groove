@@ -70,11 +70,13 @@ export default function ChatPage() {
         body: JSON.stringify({ query: userMessage.content }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        const errorMsg = data?.message || data?.detail || `Server error (${response.status})`;
+        console.error("[Chat] API error:", { status: response.status, error: data });
+        throw new Error(errorMsg);
+      }
 
       setMessages((prev) =>
         prev.filter((msg) => msg.id !== loadingMessage.id)
@@ -90,6 +92,7 @@ export default function ChatPage() {
         },
       ]);
     } catch (err) {
+      console.error("[Chat] Request failed:", err);
       setMessages((prev) =>
         prev.filter((msg) => msg.id !== loadingMessage.id)
       );
@@ -263,7 +266,7 @@ export default function ChatPage() {
               description='Ask questions like "What was my top performing campaign last month?" or "Show me CTR trends for Q2."'
             />
           ) : (
-            <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+            <div className="max-w-3xl mx-auto px-10 py-8 space-y-6">
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -313,7 +316,7 @@ export default function ChatPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex items-center space-x-4 px-6 py-4 bg-canvas-white border-t border-cloud-border"
+          className="flex items-center space-x-4 px-10 py-4 bg-canvas-white border-t border-cloud-border"
         >
           {viewMode === "sidebar" && (
             <button
