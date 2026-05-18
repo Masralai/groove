@@ -110,7 +110,10 @@ def transform_insight(raw_insight: Dict[str, Any]) -> Dict[str, Any]:
                 # If parsing fails, keep as string
                 pass
     
+    ad_id = raw_insight.get('ad_id')
+
     return {
+        'ad_id': ad_id,
         'date': date_val,
         'impressions': raw_insight.get('impressions'),
         'clicks': raw_insight.get('clicks'),

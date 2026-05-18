@@ -3,10 +3,13 @@ import logging
 from typing import AsyncGenerator, Dict, List, Optional
 import time
 import random
+from concurrent.futures import ThreadPoolExecutor
 from facebook_business.api import FacebookAdsApi
 from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.exceptions import FacebookRequestError
 from app.core.config import settings
+
+_thread_pool = ThreadPoolExecutor(max_workers=4)
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +17,7 @@ META_DEFAULT_FIELDS = {
     'campaigns': ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'start_time', 'stop_time'],
     'ad_sets': ['id', 'name', 'campaign_id', 'status', 'daily_budget', 'lifetime_budget', 'targeting', 'bid_strategy', 'created_time'],
     'ads': ['id', 'name', 'adset_id', 'status', 'creative', 'created_time'],
-    'insights': ['impressions', 'clicks', 'spend', 'reach', 'frequency', 'ctr', 'cpc', 'cpm', 'conversions', 'date_start'],
+    'insights': ['ad_id', 'impressions', 'clicks', 'spend', 'reach', 'frequency', 'ctr', 'cpc', 'cpm', 'conversions', 'date_start'],
 }
 
 class MetaAPIService:
@@ -62,21 +65,20 @@ class MetaAPIService:
 
         while attempt <= max_retries:
             try:
-                campaigns = self.ad_account.get_campaigns(
-                    fields=fields,
-                    params=params
+                loop = asyncio.get_event_loop()
+                campaigns = await loop.run_in_executor(
+                    _thread_pool,
+                    lambda: list(self.ad_account.get_campaigns(
+                        fields=fields,
+                        params=params
+                    ))
                 )
                 
                 for campaign in campaigns:
                     yield dict(campaign)
                 
-                # Reset attempt counter on successful fetch
                 attempt = 0
-                
-                # Check if there are more pages
-                # Note: facebook-business SDK handles pagination internally in the iterator
-                # For manual cursor handling, we would need to use the RawApiRequest
-                break  # Exit retry loop on success
+                break
                 
             except FacebookRequestError as e:
                 if e.api_error_code() == 80003:  # Rate limit error
@@ -108,9 +110,13 @@ class MetaAPIService:
 
         while attempt <= max_retries:
             try:
-                ad_sets = self.ad_account.get_ad_sets(
-                    fields=fields,
-                    params=params
+                loop = asyncio.get_event_loop()
+                ad_sets = await loop.run_in_executor(
+                    _thread_pool,
+                    lambda: list(self.ad_account.get_ad_sets(
+                        fields=fields,
+                        params=params
+                    ))
                 )
                 
                 for ad_set in ad_sets:
@@ -120,7 +126,7 @@ class MetaAPIService:
                 break
                 
             except FacebookRequestError as e:
-                if e.api_error_code() == 80003:  # Rate limit error
+                if e.api_error_code() == 80003:
                     attempt += 1
                     if attempt > max_retries:
                         logger.error(f"Max retries exceeded for ad sets fetch: {e}")
@@ -149,9 +155,13 @@ class MetaAPIService:
 
         while attempt <= max_retries:
             try:
-                ads = self.ad_account.get_ads(
-                    fields=fields,
-                    params=params
+                loop = asyncio.get_event_loop()
+                ads = await loop.run_in_executor(
+                    _thread_pool,
+                    lambda: list(self.ad_account.get_ads(
+                        fields=fields,
+                        params=params
+                    ))
                 )
                 
                 for ad in ads:
@@ -199,9 +209,13 @@ class MetaAPIService:
         
         while attempt <= max_retries:
             try:
-                insights = self.ad_account.get_insights(
-                    fields=fields,
-                    params=params
+                loop = asyncio.get_event_loop()
+                insights = await loop.run_in_executor(
+                    _thread_pool,
+                    lambda: list(self.ad_account.get_insights(
+                        fields=fields,
+                        params=params
+                    ))
                 )
                 
                 for insight in insights:
