@@ -24,7 +24,7 @@ async def test_meta_api_service_initialization(meta_api_service):
     with patch('facebook_business.api.FacebookAdsApi.init') as mock_init:
         await meta_api_service.initialize()
         mock_init.assert_called_once()
-        assert meta_api_service.api_initialized == True
+        assert meta_api_service.api_initialized
 
 @pytest.mark.asyncio
 async def test_fetch_campaigns(meta_api_service):

@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from unittest.mock import MagicMock
 
 from app.transform.pipeline import (
     TransformPipeline,
@@ -90,9 +91,6 @@ class TestSerialize:
             def __str__(self):
                 return "custom"
         assert _serialize(CustomObj()) == "custom"
-
-
-from unittest.mock import MagicMock
 
 
 class TestTransformCampaign:
@@ -270,7 +268,10 @@ class TestTransformPipeline:
         assert len(results) == 2
 
     def test_transform_insights_batch(self):
-        raw = [{"ad_id": "1", "date_start": "2023-01-15"}, {"ad_id": "2", "date_start": "2023-01-16"}]
+        raw = [
+            {"ad_id": "1", "date_start": "2023-01-15"},
+            {"ad_id": "2", "date_start": "2023-01-16"},
+        ]
         results = TransformPipeline.transform_insights(raw)
         assert len(results) == 2
         assert results[0]["ad_id"] == "1"

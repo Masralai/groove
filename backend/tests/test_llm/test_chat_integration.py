@@ -41,7 +41,13 @@ def _make_db_result(keys, rows):
 def test_chat_endpoint_success(mock_db_session, mock_llm_service, mock_sql_validator):
     mock_llm_service.generate_sql = AsyncMock(return_value={
         "success": True,
-        "sql": "SELECT c.id, c.name, SUM(i.spend) as total_spend FROM insights i JOIN ads a ON i.ad_id = a.id JOIN ad_sets ad ON a.ad_set_id = ad.id JOIN campaigns c ON ad.campaign_id = c.id GROUP BY c.id, c.name",
+        "sql": (
+            "SELECT c.id, c.name, SUM(i.spend) as total_spend FROM insights i"
+            " JOIN ads a ON i.ad_id = a.id"
+            " JOIN ad_sets ad ON a.ad_set_id = ad.id"
+            " JOIN campaigns c ON ad.campaign_id = c.id"
+            " GROUP BY c.id, c.name"
+        ),
         "error": ""
     })
     mock_llm_service.summarize_results = AsyncMock(return_value={
@@ -82,7 +88,9 @@ def test_chat_endpoint_sql_generation_failure(mock_db_session, mock_llm_service)
     assert response.status_code == 400
     assert "I couldn't generate a valid query" in response.json()["detail"]
 
-def test_chat_endpoint_sql_validation_failure(mock_db_session, mock_llm_service, mock_sql_validator):
+def test_chat_endpoint_sql_validation_failure(
+    mock_db_session, mock_llm_service, mock_sql_validator
+):
     mock_llm_service.generate_sql = AsyncMock(side_effect=[
         {"success": True, "sql": "DROP TABLE campaigns", "error": ""},
         {"success": False, "sql": "", "error": "Still invalid"}

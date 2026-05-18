@@ -98,7 +98,9 @@ class TestSyncAll:
 
         with patch("app.services.sync_service.AsyncSessionLocal") as mock_sf:
             mock_session = MagicMock()
-            mock_session.execute = AsyncMock(return_value=MagicMock(scalar=MagicMock(return_value=True)))
+            mock_session.execute = AsyncMock(
+                return_value=MagicMock(scalar=MagicMock(return_value=True))
+            )
             mock_session.close = AsyncMock()
             mock_sf.return_value = mock_session
 
@@ -121,7 +123,9 @@ class TestSyncAll:
 
         with patch("app.services.sync_service.AsyncSessionLocal") as mock_sf:
             mock_session = MagicMock()
-            mock_session.execute = AsyncMock(return_value=MagicMock(scalar=MagicMock(return_value=True)))
+            mock_session.execute = AsyncMock(
+                return_value=MagicMock(scalar=MagicMock(return_value=True))
+            )
             mock_session.close = AsyncMock()
             mock_sf.return_value = mock_session
 
@@ -158,7 +162,9 @@ class TestAdvisoryLock:
 
         with patch("app.services.sync_service.AsyncSessionLocal") as mock_sf:
             mock_session = MagicMock()
-            mock_session.execute = AsyncMock(return_value=MagicMock(scalar=MagicMock(return_value=True)))
+            mock_session.execute = AsyncMock(
+                return_value=MagicMock(scalar=MagicMock(return_value=True))
+            )
             mock_session.close = AsyncMock()
             mock_sf.return_value = mock_session
 
@@ -172,7 +178,9 @@ class TestAdvisoryLock:
         """sync_all raises SyncAlreadyRunningError when lock is not available."""
         with patch("app.services.sync_service.AsyncSessionLocal") as mock_sf:
             mock_session = MagicMock()
-            mock_session.execute = AsyncMock(return_value=MagicMock(scalar=MagicMock(return_value=False)))
+            mock_session.execute = AsyncMock(
+                return_value=MagicMock(scalar=MagicMock(return_value=False))
+            )
             mock_session.close = AsyncMock()
             mock_sf.return_value = mock_session
 

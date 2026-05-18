@@ -6,7 +6,8 @@ def test_valid_select_query():
     valid_queries = [
         "SELECT * FROM campaigns",
         "SELECT name, status FROM campaigns WHERE status = 'active'",
-        "SELECT c.name, SUM(i.spend) FROM insights i JOIN campaigns c ON i.ad_id = c.id GROUP BY c.name",
+        "SELECT c.name, SUM(i.spend) FROM insights i"
+        " JOIN campaigns c ON i.ad_id = c.id GROUP BY c.name",
         "WITH cte AS (SELECT * FROM campaigns) SELECT * FROM cte",
         "SELECT * FROM insights LIMIT 10"
     ]
@@ -115,4 +116,8 @@ def test_sanitize_error_message():
     for error in test_errors:
         sanitized = sql_validator.sanitize_error_message(error)
         # Should not contain the original sensitive information
-        assert "[REDACTED]" in sanitized or len(sanitized) < len(error) or "SECRET_INFO" not in sanitized
+        assert (
+            "[REDACTED]" in sanitized
+            or len(sanitized) < len(error)
+            or "SECRET_INFO" not in sanitized
+        )
