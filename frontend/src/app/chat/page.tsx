@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import EmptyState from "@/components/EmptyState";
 
 interface Message {
   id: string;
@@ -154,20 +155,6 @@ export default function ChatPage() {
     );
   };
 
-  const EmptyState = () => (
-    <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
-      <div className="w-16 h-16 bg-plasma-teal-gradient/10 rounded-2xl flex items-center justify-center mb-6">
-        <svg className="w-8 h-8 text-plasma-teal-gradient" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-      </div>
-      <h2 className="text-2xl font-bold text-midnight-ink mb-2">Ask about your ad data</h2>
-      <p className="text-base text-slate-text max-w-md">
-        Ask questions like &quot;What was my top performing campaign last month?&quot; or &quot;Show me CTR trends for Q2.&quot;
-      </p>
-    </div>
-  );
-
   return (
     <div className="flex h-[calc(100vh-4rem)]">
       {viewMode === "sidebar" && (
@@ -270,7 +257,11 @@ export default function ChatPage() {
           aria-live="polite"
         >
           {messages.length === 0 ? (
-            <EmptyState />
+            <EmptyState
+              variant="chat"
+              title="Ask about your ad data"
+              description='Ask questions like "What was my top performing campaign last month?" or "Show me CTR trends for Q2."'
+            />
           ) : (
             <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
               {messages.map((message) => (

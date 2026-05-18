@@ -13,6 +13,20 @@
   --color-system-sky: #27aae1;
   --color-plasma-teal-gradient: #19a05f;
 
+  --color-dark-midnight-ink: #f5f5f5;
+  --color-dark-canvas-white: #0a0a0a;
+  --color-dark-cloud-gray: #1a1a1a;
+  --color-dark-slate-text: #a0a0a0;
+  --color-dark-ash-gray: #7c7c7c;
+  --color-dark-cloud-border: #2a2a2a;
+  --color-dark-system-mint: #8dc63f;
+  --color-dark-system-sky: #27aae1;
+  --color-dark-plasma-teal-gradient: linear-gradient(
+    89.97deg,
+    rgb(25, 160, 95) 0.02%,
+    rgb(13, 127, 140) 123.85%
+  );
+
   --spacing-4: 4px;
   --spacing-8: 8px;
   --spacing-12: 12px;
@@ -264,6 +278,19 @@ body {
   .animate-spin {
     animation: none !important;
   }
+}
+
+[data-theme="dark"] {
+  --color-midnight-ink: var(--color-dark-midnight-ink);
+  --color-canvas-white: var(--color-dark-canvas-white);
+  --color-cloud-gray: var(--color-dark-cloud-gray);
+  --color-slate-text: var(--color-dark-slate-text);
+  --color-ash-gray: var(--color-dark-ash-gray);
+  --color-cloud-border: var(--color-dark-cloud-border);
+  --color-system-mint: var(--color-dark-system-mint);
+  --color-system-sky: var(--color-dark-system-sky);
+  --color-plasma-teal-gradient: var(--color-dark-plasma-teal-gradient);
+  --shadow-lg: rgba(0, 0, 0, 0.4) 0px 4px 20px 0px;
 }
 
 @media (prefers-color-scheme: dark) {

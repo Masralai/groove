@@ -5,6 +5,7 @@ import Link from "next/link";
 import KPICard from "@/components/KPICard";
 import LoadingState from "@/components/LoadingState";
 import EmptyState from "@/components/EmptyState";
+import { computeKPIs, formatCurrency, formatCompact, trendChange, statusBadgeClass, type InsightRow } from "@/lib/dashboard-utils";
 
 interface Campaign {
   id: string;
@@ -16,53 +17,7 @@ interface Campaign {
   created_time: string | null;
 }
 
-interface InsightRow {
-  impressions: number;
-  clicks: number;
-  spend: number | null;
-}
-
-function computeKPIs(insights: InsightRow[]) {
-  const totalSpend = insights.reduce((s, r) => s + (r.spend || 0), 0);
-  const impressions = insights.reduce((s, r) => s + (r.impressions || 0), 0);
-  const clicks = insights.reduce((s, r) => s + (r.clicks || 0), 0);
-  const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-  return { totalSpend, impressions, clicks, ctr };
-}
-
-function formatCurrency(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
-  return `$${n.toFixed(2)}`;
-}
-
-function formatCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString();
-}
-
-function trendChange(current: number, previous: number): { change: string; trend: "up" | "down" } {
-  if (previous === 0) return { change: "—", trend: "up" };
-  const pct = ((current - previous) / previous) * 100;
-  return {
-    change: `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
-    trend: pct > 0 ? "up" : "down",
-  };
-}
-
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case "ACTIVE":
-      return "badge-status-active";
-    case "PAUSED":
-      return "badge-status-paused";
-    case "COMPLETED":
-      return "badge-status-completed";
-    default:
-      return "badge-status-paused";
-  }
-}
+// Helpers now imported from @/lib/dashboard-utils
 
 export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
