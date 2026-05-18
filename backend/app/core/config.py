@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import ConfigDict, PostgresDsn
+from pydantic import ConfigDict, PostgresDsn, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -15,13 +15,28 @@ class Settings(BaseSettings):
     META_ACCESS_TOKEN: str
     META_AD_ACCOUNT_ID: str
 
-    # LLM Settings (OpenRouter)
-    OPENROUTER_API_KEY: str
+    # LLM Provider: "openrouter" (default) or "lmstudio"
+    LLM_PROVIDER: str = "openrouter"
+
+    # OpenRouter (when LLM_PROVIDER=openrouter)
+    OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "nvidia/nemotron-3-super-120b-a12b:free"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
+    # LM Studio (when LLM_PROVIDER=lmstudio)
+    LMSTUDIO_BASE_URL: str = "http://host.docker.internal:1234/v1"
+    LMSTUDIO_MODEL: str = ""
+
     # Database Settings
     POSTGRES_DSN: PostgresDsn
+    POSTGRES_READONLY_DSN: PostgresDsn | None = None  # type: ignore[assignment]
+
+    @field_validator("POSTGRES_READONLY_DSN", mode="before")
+    @classmethod
+    def blank_string_to_none(cls, v: Any) -> Any:
+        if isinstance(v, str) and v.strip() == "":
+            return None
+        return v
     MONGODB_URI: str
 
     # Security

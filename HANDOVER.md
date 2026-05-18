@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Production-ready service integrating with the Meta Marketing API to fetch ads data (campaigns, ad sets, ads, insights) into PostgreSQL + MongoDB, with a natural language chatbot powered by Gemini.
+Production-ready service integrating with the Meta Marketing API to fetch ads data (campaigns, ad sets, ads, insights) into PostgreSQL + MongoDB, with a natural language chatbot powered by OpenRouter or LM Studio.
 
 ## Completed Since Last Handover
 
@@ -34,6 +34,17 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 | README sections + SECURITY.md | Added Prompt Engineering, Security, Scaling sections to README.md. Created `SECURITY.md` with read-only DB user setup, CORS config, secret key advice. |
 | CI/CD workflow | `.github/workflows/test.yml` — backend pytest + ruff lint, frontend vitest + build on push/PR to main |
 | `.pre-commit-config.yaml` | Created with ruff (lint+format) + trailing-whitespace, end-of-file-fixer, check-yaml, check-json |
+| Dual LLM provider (OpenRouter + LM Studio) | Added `LLM_PROVIDER`, `LMSTUDIO_BASE_URL`, `LMSTUDIO_MODEL` to config; `_call_llm()` picks URL/model/headers/error-handling dynamically; quota checks skipped for LM Studio |
+| LM Studio Docker networking fix | Changed from `network_mode: host` + bridge → `network_mode: host` on both backend + frontend; DSNs use `localhost`; LM Studio reached at `localhost:1234` |
+| FdLogger for visible Docker logs | Replaced `logging.getLogger()` with `FdLogger` (direct `os.write(1, ...)`) in `main.py`, `router.py`, `llm_service.py` — makes logs visible in `docker compose logs` |
+| Read-only DB user for LLM | Added `POSTGRES_READONLY_DSN` with blank-to-None validator; added `get_readonly_db()` dependency |
+| Frontend component tests | 7 test files, 41 tests — covers chat, error states, non-JSON responses |
+| Removed Recent Queries sidebar | Removed from chat UI: hardcoded `recentQueries` array, desktop sidebar, mobile FAB/sheet. Removed 2 corresponding tests |
+| Fixed `response.json()` order | Reordered to check `response.ok` first, safe try-catch on error — prevents raw JSON parse errors shown to user |
+| httpx timeout 60s → 180s | gemma-4-e4b takes ~51s to reason; 60s caused client disconnect mid-response |
+| Skip SQL cache for retry/repair | Added `use_cache=False` parameter — validation retry and SQL execution repair always call LLM fresh |
+| Fixed trailing `;` stripping bug | Regex markdown extraction path was missing `.rstrip(';')` — every markdown-wrapped SQL was falsely rejected as "multi-statement" |
+| Fixed Docker networking | `network_mode: host` on backend + frontend; DSNs use `localhost`; LM Studio at `localhost:1234` |
 
 ### LLM Tests Fixed
 
@@ -76,7 +87,7 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 - Comprehensive test suite for new endpoints
 
 **Phase 4: LLM Service + Chat** - COMPLETED
-- LLM Service with Gemini API integration for text-to-SQL generation and result summarization
+- LLM Service with OpenRouter/LM Studio integration for text-to-SQL generation and result summarization
 - SQL Validator service with multi-layered protection (regex block, single-statement enforcement, read-only transactions)
 - Chat endpoint (/api/chat) for natural language queries with error handling and retry logic
 - System prompt engineering with schema injection and few-shot examples
@@ -123,7 +134,7 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 | MetaAPI Service | REST calls to Graph API via `facebook_business` SDK, pagination, rate-limit backoff |
 | Data Sync Service | Orchestrates fetch → MongoDB → transform → PostgreSQL upsert |
 | Transform Pipeline | Raw JSON → typed records with field mapping |
-| LLM Service | Gemini API integration, text-to-SQL, result summarization |
+| LLM Service | OpenRouter/LM Studio API integration, text-to-SQL, result summarization |
 | SQL Validator | Multi-layer: regex block on DDL, single-statement enforcement, read-only txn |
 
 ### Data Model
@@ -165,7 +176,7 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 - **Transaction integrity**: MongoDB-first writes, PG best-effort upsert
 - **Migrations**: Alembic (production standard)
 - **Meta API**: REST via `facebook_business` SDK (GraphQL deferred to separate branch)
-- **LLM**: Gemini (Google AI, free tier)
+- **LLM**: OpenRouter (remote, default) or LM Studio (local, configurable via `LLM_PROVIDER`)
 - **SQL guardrails**: Regex block + single-statement enforcement + read-only txn
 - **Scheduling**: APScheduler in FastAPI process, advisory lock prevents double-fire
 - **Connection pool**: `pool_size=20, max_overflow=10, pool_timeout=10s`
@@ -276,7 +287,7 @@ frontend/
 | Campaign date error | `created_time` etc. are ISO strings from API, PG expects `datetime` | Added `_parse_datetime()` in pipeline, converts to offset-naive UTC |
 | Insights API error | `conversion_value` is not a valid field in v22.0 | Removed from default fields |
 | Insights API error | `time_range` param passed as string instead of dict | Pass dict directly |
-| Model unavailable | `gemini-3-flash` not a valid API model name | Changed to `gemini-2.5-flash` |
+| LLM provider migration | Gemini removed; OpenRouter + LM Studio added | Changed to dual-provider config via `LLM_PROVIDER`, `OPENROUTER_API_KEY`, `LMSTUDIO_BASE_URL` |
 | Config file not found | Docker volume mount path mismatch — code looked for `/config/sources.yaml` but volume mounts to `/app/config` | Added `.get()` fallbacks in `meta_api_service.py` |
 | Config path resolution | `load_yaml_config` went up 3 directory levels instead of 4 | Now goes up 4 dir levels to find project-root `config/sources.yaml` |
 | `settings.meta_ads` empty | Not populated from YAML config on module load | Populated on import with graceful `FileNotFoundError` fallback |
@@ -320,7 +331,7 @@ Remaining items after this session's completions (CORS, SECRET_KEY, CI/CD, HEALT
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic |
 | Databases | PostgreSQL 16 (analytics), MongoDB 7 (staging) |
 | Meta API | `facebook_business` SDK (REST) |
-| LLM | Gemini 2.5 Flash via `google-genai` |
+| LLM | OpenRouter or LM Studio (configurable via `LLM_PROVIDER`) |
 | Frontend | Next.js 16, TypeScript, Tailwind CSS v4 |
 | Testing | pytest, pytest-asyncio, testcontainers, httpx_mock / responses |
 | Infrastructure | Docker Compose (4 services) |
@@ -331,9 +342,10 @@ Remaining items after this session's completions (CORS, SECRET_KEY, CI/CD, HEALT
 ```env
 META_ACCESS_TOKEN=<meta-api-access-token>
 META_AD_ACCOUNT_ID=act_<account-id>
-GEMINI_API_KEY=<google-ai-studio-api-key>
-POSTGRES_DSN=postgresql+asyncpg://groove:groove@postgres:5432/groove
-MONGODB_URI=mongodb://mongodb:27017/groove
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-v1-<openrouter-api-key>
+POSTGRES_DSN=postgresql+asyncpg://groove:groove@localhost:5432/groove
+MONGODB_URI=mongodb://localhost:27017/groove
 CORS_ORIGINS=http://localhost:3000,http://localhost:8000
 ```
 
@@ -364,7 +376,7 @@ curl http://localhost:8000/api/ads
 # Check insights (will be empty until sync runs)
 curl http://localhost:8000/api/insights
 
-# Chat (requires valid Gemini API key and data to return meaningful results)
+# Chat (requires LLM provider configured via .env and data to return meaningful results)
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"query": "Which campaign spent the most last week?"}'
@@ -379,7 +391,7 @@ docker compose exec backend pytest
 ## Gotchas & Notes
 
 1. **Meta API creds**: Needed for `POST /api/fetch` to work. Without them, the chat can still answer based on seeded/empty DB data.
-2. **Gemini API key**: Free from Google AI Studio. Without it, the chat endpoint returns errors.
+2. **LLM provider**: Set `LLM_PROVIDER=openrouter` (requires `OPENROUTER_API_KEY`) or `LLM_PROVIDER=lmstudio` (requires LM Studio running on `localhost:1234`). Default is `openrouter`.
 3. **APScheduler + multi-worker**: The PG advisory lock prevents double-fires. For production, use a dedicated scheduler container.
 4. **MongoDB vs JSONB kept separate** — not merged per PRD decision. If asked why, refer to DECISIONS.md #1.
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
@@ -391,6 +403,6 @@ docker compose exec backend pytest
 11. **Dashboard KPIs**: Computed client-side from `/api/insights` data (full fetch with dynamic 30d-ago date). For large datasets, add a dedicated aggregate endpoint or server-side aggregation.
 12. **Insights model**: Uses `Text PK` (UUID string), not `SERIAL`. The `UniqueConstraint(ad_id, date)` enables the `ON CONFLICT` upsert. Partitioning was removed (conflicts with PG's requirement that partition columns appear in all unique constraints).
 13. **`settings.meta_ads`**: Now populated automatically from `config/sources.yaml` on import. Gracefully falls back to empty dict if YAML file is missing (useful for CI/testing).
-14. **Valid Gemini model names**: As of May 2026, `gemini-2.5-flash` is the latest stable Flash model. `gemini-3-flash` is not yet available via the API (only `gemini-3-flash-preview` exists). Updated config defaults to `gemini-2.5-flash`.
+14. **LLM provider**: Set `LLM_PROVIDER=openrouter` (remote, default) or `LLM_PROVIDER=lmstudio` (local). For OpenRouter, set `OPENROUTER_API_KEY` and optionally `OPENROUTER_MODEL`. For LM Studio, set `LMSTUDIO_BASE_URL` (default: `http://localhost:1234/v1`) and `LMSTUDIO_MODEL`.
 15. **facebook-business SDK fields**: Field names use underscore format (e.g. `adset_id`, `date_start`). The SDK returns raw API data as `dict()` — JSON/JSONB columns in PostgreSQL require `json.dumps()` serialization via the transform pipeline before upsert. Date/time strings are parsed to offset-naive UTC `datetime` objects.
 16. **Backend container runs with `--reload`** for faster iteration during development. `docker compose restart backend` after adding new dependencies (volumes are mounted, so code changes trigger auto-reload). Beware of mid-request interruptions during heavy sync operations.

@@ -51,7 +51,6 @@ jobs:
         env:
           META_ACCESS_TOKEN: test
           META_AD_ACCOUNT_ID: act_test
-          GEMINI_API_KEY: test
           OPENROUTER_API_KEY: test
           POSTGRES_DSN: postgresql+asyncpg://groove:groove@localhost:5432/groove
           MONGODB_URI: mongodb://localhost:27017/groove

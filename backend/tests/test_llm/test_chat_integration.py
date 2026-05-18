@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.database import get_db
+from app.core.database import get_db, get_readonly_db
 from app.main import app
 
 client = TestClient(app)
@@ -16,9 +16,14 @@ def mock_db_session():
     def override_get_db():
         return mock_db
 
+    def override_get_readonly_db():
+        return mock_db
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_readonly_db] = override_get_readonly_db
     yield mock_db
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_readonly_db, None)
 
 @pytest.fixture
 def mock_llm_service():

@@ -1,27 +1,49 @@
 import hashlib
-import logging
 import re
 from typing import Any
 
 import httpx
 
 from app.core.config import settings
+from app.core.fd_logger import FdLogger
 
-logger = logging.getLogger(__name__)
+logger = FdLogger("app.services.llm_service")
 
 _CACHE_MAX_SIZE = 50
 
-OPENROUTER_HEADERS = {
-    "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-    "Content-Type": "application/json",
-}
-
 
 class LLMService:
-    """LLM API service (OpenRouter) for text-to-SQL and result summarization."""
+    """LLM API service for text-to-SQL and result summarization.
+
+    Supports OpenRouter (remote) and LM Studio (local) via
+    the ``LLM_PROVIDER`` setting.
+    """
 
     def __init__(self):
         self._sql_cache: dict[str, dict[str, Any]] = {}
+
+    # ── Provider helpers ────────────────────────────────────────────────
+
+    @staticmethod
+    def _provider_label() -> str:
+        return "LM Studio" if settings.LLM_PROVIDER == "lmstudio" else "OpenRouter"
+
+    @staticmethod
+    def _provider_config() -> dict[str, str]:
+        """Return ``{base_url, model_name, auth_header}`` for the active provider."""
+        if settings.LLM_PROVIDER == "lmstudio":
+            return {
+                "base_url": settings.LMSTUDIO_BASE_URL,
+                "model_name": settings.LMSTUDIO_MODEL,
+                "auth_header": "",
+            }
+        return {
+            "base_url": settings.OPENROUTER_BASE_URL,
+            "model_name": settings.OPENROUTER_MODEL,
+            "auth_header": f"Bearer {settings.OPENROUTER_API_KEY}",
+        }
+
+    # ── Cache helpers ───────────────────────────────────────────────────
 
     def _cache_key(self, user_query: str) -> str:
         normalized = user_query.strip().lower()
@@ -39,6 +61,8 @@ class LLMService:
             oldest = next(iter(self._sql_cache))
             del self._sql_cache[oldest]
 
+    # ── LLM call ────────────────────────────────────────────────────────
+
     @staticmethod
     def _is_quota_error(status_code: int, body: dict) -> tuple[bool, int]:
         if status_code == 429:
@@ -48,18 +72,39 @@ class LLMService:
             return True, 60
         return False, 0
 
-    async def _call_llm(self, prompt: str, model: str | None = None) -> dict[str, Any]:
-        """Make a request to OpenRouter's chat completions endpoint."""
+    async def _call_llm(
+        self, user_query: str, system_prompt: str | None = None,
+        model: str | None = None,
+    ) -> dict[str, Any]:
+        """Make a request to the configured LLM provider's chat completions endpoint."""
+        cfg = self._provider_config()
+        provider = self._provider_label()
+        model_name = model or cfg["model_name"]
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": user_query})
+
+        headers = {"Content-Type": "application/json"}
+        if cfg["auth_header"]:
+            headers["Authorization"] = cfg["auth_header"]
+
         payload = {
-            "model": model or settings.OPENROUTER_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
+            "model": model_name,
+            "messages": messages,
             "temperature": 0.1,
         }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        logger.info(
+            f"Calling {provider} model={model_name}"
+            f" system={len(system_prompt or '')} chars query={len(user_query)} chars"
+        )
+
+        async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(
-                f"{settings.OPENROUTER_BASE_URL}/chat/completions",
-                headers=OPENROUTER_HEADERS,
+                f"{cfg['base_url']}/chat/completions",
+                headers=headers,
                 json=payload,
             )
 
@@ -69,17 +114,24 @@ class LLMService:
             except Exception:
                 body = {}
 
-            is_quota, retry_after = self._is_quota_error(response.status_code, body)
-            if is_quota:
-                return {
-                    "success": False,
-                    "error_type": "quota_exceeded",
-                    "retry_after": retry_after,
-                    "error": (
-                        f"AI service rate limited (HTTP {response.status_code})."
-                        " Try again later."
-                    ),
-                }
+            _body_str = str(body)[:300]
+            logger.warning(
+                f"{provider} API error: status={response.status_code} body={_body_str}"
+            )
+
+            # Only OpenRouter has quota/rate-limit errors
+            if provider == "OpenRouter":
+                is_quota, retry_after = self._is_quota_error(response.status_code, body)
+                if is_quota:
+                    return {
+                        "success": False,
+                        "error_type": "quota_exceeded",
+                        "retry_after": retry_after,
+                        "error": (
+                            f"AI service rate limited (HTTP {response.status_code})."
+                            " Try again later."
+                        ),
+                    }
 
             return {
                 "success": False,
@@ -95,8 +147,14 @@ class LLMService:
         try:
             text = data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, AttributeError) as e:
+            logger.error(f"Unexpected {provider} response format: {e} data={str(data)[:200]}")
             return {"success": False, "error_type": "api_error", "retry_after": 0,
                     "error": f"Unexpected API response format: {e}"}
+
+        logger.info(
+            f"{provider} response: status={response.status_code}"
+            f" len={len(text)} preview={text[:200]}"
+        )
 
         return {"success": True, "text": text}
 
@@ -227,7 +285,11 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
             "7. Summarize results in 1-2 sentences with proper currency"
             " formatting for monetary values\n"
             "8. Focus on advertising metrics: spend, impressions, clicks,"
-            " conversions, CTR, CPC, CPM, reach, frequency"
+            " conversions, CTR, CPC, CPM, reach, frequency\n"
+            "9. The schema has NO platform/positioning column. You MUST still"
+            " generate a SQL query even for impossible questions."
+            " For 'Facebook vs Instagram'-like questions return:"
+            " SELECT 'Schema has no platform column — cannot compare platforms.' AS message"
         )
 
         return f"""{role_definition}
@@ -238,25 +300,30 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
 
 {constraints}"""
 
-    async def generate_sql(self, user_query: str) -> dict[str, Any]:
+    async def generate_sql(self, user_query: str, use_cache: bool = True) -> dict[str, Any]:
         """
         Generate SQL from user query using LLM.
 
         Results are cached by normalized query to avoid redundant API calls.
 
+        Args:
+            user_query: The natural language query.
+            use_cache: Whether to check/write the cache. Set to ``False`` for
+                       repair/retry prompts so the LLM is called fresh.
+
         Returns:
             Dict with keys: success (bool), sql (str), error (str),
             error_type (str), retry_after (int)
         """
-        cached = self._cache_get(user_query)
-        if cached is not None:
-            logger.info("SQL cache hit for query: %.60s", user_query)
-            return dict(cached)
+        if use_cache:
+            cached = self._cache_get(user_query)
+            if cached is not None:
+                logger.info(f"SQL cache hit for query: {user_query[:60]}")
+                return dict(cached)
 
         system_prompt = self._build_system_prompt()
-        full_prompt = f"{system_prompt}\n\nUser Question: {user_query}\n\nSQL Query:"
 
-        result = await self._call_llm(full_prompt)
+        result = await self._call_llm(user_query, system_prompt=system_prompt)
         if not result["success"]:
             return result
 
@@ -265,7 +332,7 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
         # Extract SQL from response (handle potential markdown formatting)
         sql_match = re.search(r'```sql\n(.*?)\n```', generated_text, re.DOTALL)
         if sql_match:
-            sql = sql_match.group(1).strip()
+            sql = sql_match.group(1).strip().rstrip(';').strip()
         else:
             lines = generated_text.split('\n')
             sql_lines = []
@@ -276,7 +343,7 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
                     in_sql = True
                 if in_sql:
                     sql_lines.append(line)
-                    if line.strip().endswith(';') or line.strip() == '':
+                    if line.strip().endswith(';'):
                         break
             sql = '\n'.join(sql_lines).strip()
             if sql.endswith(';'):
@@ -284,6 +351,10 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
 
         sql_upper = sql.strip().upper()
         if not (sql_upper.startswith('SELECT') or sql_upper.startswith('WITH')):
+            logger.warning(
+                f"LLM response did not contain SELECT/WITH."
+                f" Raw response (first 500 chars): {generated_text[:500]}"
+            )
             output = {
                 "success": False,
                 "sql": "",
@@ -300,7 +371,8 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
             "error_type": "",
             "retry_after": 0,
         }
-        self._cache_set(user_query, output)
+        if use_cache:
+            self._cache_set(user_query, output)
         return output
 
     async def summarize_results(
@@ -334,12 +406,12 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
             "You are a Meta Ads data analyst. Summarize the query results"
             " in 1-2 sentences."
         )
-        full_prompt = (
-            f"{system_prompt}\n\nUser's Question: {user_query}\nSQL:"
+        user_prompt = (
+            f"User's Question: {user_query}\nSQL:"
             f" {sql}\n{results_text}\nSummary:"
         )
 
-        result = await self._call_llm(full_prompt)
+        result = await self._call_llm(user_prompt, system_prompt=system_prompt)
         if not result["success"]:
             return {
                 "success": False,

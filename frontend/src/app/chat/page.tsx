@@ -12,14 +12,10 @@ interface Message {
   isError?: boolean;
 }
 
-type ViewMode = "sidebar" | "full";
-
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [visibleSql, setVisibleSql] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("sidebar");
-  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,12 +23,6 @@ export default function ChatPage() {
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
-
-  const recentQueries = [
-    { text: "Show campaigns with highest spend", time: "10:30 AM" },
-    { text: "What was my CTR last week?", time: "3:15 PM" },
-    { text: "Compare Facebook vs Instagram performance", time: "9:45 AM" },
-  ];
 
   useEffect(() => {
     scrollToBottom();
@@ -70,13 +60,19 @@ export default function ChatPage() {
         body: JSON.stringify({ query: userMessage.content }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        const errorMsg = data?.message || data?.detail || `Server error (${response.status})`;
-        console.error("[Chat] API error:", { status: response.status, error: data });
+        let errorMsg = `Server error (${response.status})`;
+        try {
+          const errData = await response.json();
+          errorMsg = errData?.message || errData?.detail || errorMsg;
+          console.error("[Chat] API error:", { status: response.status, error: errData });
+        } catch {
+          console.error("[Chat] Non-JSON error response:", response.status, response.statusText);
+        }
         throw new Error(errorMsg);
       }
+
+      const data = await response.json();
 
       setMessages((prev) =>
         prev.filter((msg) => msg.id !== loadingMessage.id)
@@ -160,95 +156,6 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      {viewMode === "sidebar" && (
-        <aside className="hidden md:flex w-64 bg-deep border-r border-edge flex-col shrink-0">
-          <div className="p-6 border-b border-edge">
-            <h2 className="text-xs font-semibold text-muted uppercase tracking-[0.08em]">
-              Recent Queries
-            </h2>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {recentQueries.map((query, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setInputValue(query.text);
-                  inputRef.current?.focus();
-                }}
-                className="w-full text-left p-3 bg-surface/50 rounded-md hover:bg-surface/80 transition-colors group"
-                aria-label={`Load query: ${query.text}`}
-              >
-                <p className="text-sm font-medium text-cream line-clamp-2 group-hover:text-amber transition-colors">
-                  {query.text}
-                </p>
-                <p className="text-xs text-dim mt-1">{query.time}</p>
-              </button>
-            ))}
-          </div>
-          <div className="p-4 border-t border-edge">
-            <button
-              onClick={() => setViewMode("full")}
-              className="w-full text-sm text-muted hover:text-cream transition-colors flex items-center justify-center space-x-1"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              </svg>
-              <span>Expand</span>
-            </button>
-          </div>
-        </aside>
-      )}
-
-      <button
-        onClick={() => setShowMobileSidebar(true)}
-        className="fixed bottom-4 right-4 z-30 md:hidden w-12 h-12 bg-gradient-to-br from-amber to-amber-deep text-deep rounded-full shadow-lg flex items-center justify-center shadow-amber/25"
-        aria-label="Show recent queries"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
-      {showMobileSidebar && (
-        <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-deep/60 backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)} />
-          <div className="absolute bottom-0 inset-x-0 bg-surface rounded-t-2xl shadow-xl max-h-[60vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-edge">
-              <h2 className="text-xs font-semibold text-muted uppercase tracking-[0.08em]">Recent Queries</h2>
-              <button
-                onClick={() => setShowMobileSidebar(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full text-dim hover:bg-surface/50 transition-colors"
-                aria-label="Close"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {recentQueries.length === 0 ? (
-                <p className="text-sm text-muted text-center py-8">No recent queries yet.</p>
-              ) : (
-                recentQueries.map((query, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setInputValue(query.text);
-                      setShowMobileSidebar(false);
-                      inputRef.current?.focus();
-                    }}
-                    className="w-full text-left p-3 bg-surface/50 rounded-md hover:bg-surface/80 transition-colors"
-                  >
-                    <p className="text-sm font-medium text-cream line-clamp-2">{query.text}</p>
-                    <p className="text-xs text-dim mt-1">{query.time}</p>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex-1 flex flex-col min-w-0">
         <div
           id="chat-messages"
@@ -316,18 +223,6 @@ export default function ChatPage() {
           onSubmit={handleSubmit}
           className="flex items-center space-x-4 px-10 py-4 bg-deep/80 backdrop-blur-lg border-t border-edge"
         >
-          {viewMode === "sidebar" && (
-            <button
-              type="button"
-              onClick={() => setViewMode("full")}
-              className="hidden md:flex items-center justify-center w-10 h-10 rounded-full border border-edge text-muted hover:bg-surface/50 transition-colors"
-              aria-label="Expand sidebar"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
           <div className="flex-1 relative">
             <input
               ref={inputRef}

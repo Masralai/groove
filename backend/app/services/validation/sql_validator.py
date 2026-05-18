@@ -1,9 +1,11 @@
-import logging
 import re
 
 import sqlparse
 
-logger = logging.getLogger(__name__)
+from app.core.config import settings
+from app.core.fd_logger import FdLogger
+
+logger = FdLogger(__name__)
 
 class SQLValidator:
     """Multi-layered SQL validation service for security and correctness."""

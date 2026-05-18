@@ -1,16 +1,16 @@
-import logging
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
 from app.core.database import AsyncSessionLocal
+from app.core.fd_logger import FdLogger
 from app.models.mongo import insights_raw
 from app.repositories.mongo_repository import mongo_repository
 from app.repositories.postgres_repository import postgres_repository
 from app.services.meta_api_service import meta_api_service
 from app.transform.pipeline import transform_pipeline
 
-logger = logging.getLogger(__name__)
+logger = FdLogger(__name__)
 
 
 class SyncAlreadyRunningError(Exception):

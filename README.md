@@ -1,6 +1,6 @@
 # Groove: Meta Ads Data Pipeline + NL Chatbot
 
-Production-ready service integrating with the Meta Marketing API to fetch ads data into PostgreSQL + MongoDB, with a natural language chatbot powered by Gemini.
+Production-ready service integrating with the Meta Marketing API to fetch ads data into PostgreSQL + MongoDB, with a natural language chatbot powered by OpenRouter (remote) or LM Studio (local).
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@ Build a production-ready service that integrates with the Meta Marketing API, fe
 The system consists of two main parts:
 
 1. **Meta Marketing API Data Pipeline**: Fetches campaigns, ad sets, ads, and daily insights from Meta Marketing API, stores raw responses in MongoDB, and transforms/upserts normalized data into PostgreSQL
-2. **Natural Language Chatbot**: Allows users to query ads data in plain English using Gemini LLM for text-to-SQL generation
+2. **Natural Language Chatbot**: Allows users to query ads data in plain English using OpenRouter (remote) or LM Studio (local) for text-to-SQL generation
 
 ## Architecture
 
@@ -52,7 +52,7 @@ The system consists of two main parts:
 - **MetaAPI Service**: REST calls to Graph API via `facebook_business` SDK, pagination, rate-limit backoff
 - **Data Sync Service**: Orchestrates fetch → MongoDB → transform → PostgreSQL upsert
 - **Transform Pipeline**: Raw JSON → typed records with field mapping
-- **LLM Service**: Gemini integration, text-to-SQL, result summarization
+- **LLM Service**: OpenRouter/LM Studio integration, text-to-SQL, result summarization
 - **SQL Validator**: Multi-layer validation (regex block on DDL, single-statement enforcement, read-only txn)
 
 ## Data Model
@@ -93,7 +93,7 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic |
 | Databases | PostgreSQL 16 (analytics), MongoDB 7 (staging) |
 | Meta API | `facebook_business` SDK (REST) |
-| LLM | Gemini 2.5 Flash via `google-genai` |
+| LLM | OpenRouter or LM Studio (configurable via `LLM_PROVIDER`) |
 | Frontend | Next.js 16, TypeScript, Tailwind CSS v4 |
 | Testing | pytest, pytest-asyncio, testcontainers, httpx_mock / responses |
 | Infrastructure | Docker Compose (4 services) |
@@ -106,7 +106,7 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 - Docker and Docker Compose
 - Python 3.12+ (for local development)
 - Meta Marketing API access token
-- Gemini API key from Google AI Studio
+- OpenRouter API key (for remote LLM) **or** LM Studio running locally with a compatible model (e.g. `gemma-4-E4B-it-GGUF` on port 1234)
 
 ### Installation Steps
 
@@ -125,13 +125,14 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 
 3. Edit `.env` to add your credentials:
 
-   ```env
-   META_ACCESS_TOKEN=<your-meta-access-token>
-   META_AD_ACCOUNT_ID=act_<your-account-id>
-   GEMINI_API_KEY=<your-gemini-api-key>
-   POSTGRES_DSN=postgresql+asyncpg://groove:groove@postgres:5432/groove
-   MONGODB_URI=mongodb://mongodb:27017/groove
-   ```
+    ```env
+    META_ACCESS_TOKEN=<your-meta-access-token>
+    META_AD_ACCOUNT_ID=act_<your-account-id>
+    LLM_PROVIDER=openrouter
+    OPENROUTER_API_KEY=sk-or-v1-<your-openrouter-api-key>
+    POSTGRES_DSN=postgresql+asyncpg://groove:groove@localhost:5432/groove
+    MONGODB_URI=mongodb://localhost:27017/groove
+    ```
 
 4. Build and start the services:
 
@@ -147,14 +148,20 @@ The following environment variables are required:
 |----------|-------------|---------|
 | `META_ACCESS_TOKEN` | Meta Marketing API access token | `EAAB...` |
 | `META_AD_ACCOUNT_ID` | Meta Ad Account ID | `act_123456789` |
-| `GEMINI_API_KEY` | Gemini API key from Google AI Studio | `AIza...` |
-| `POSTGRES_DSN` | PostgreSQL connection string | `postgresql+asyncpg://groove:groove@postgres:5432/groove` |
-| `MONGODB_URI` | MongoDB connection string | `mongodb://mongodb:27017/groove` |
+| `LLM_PROVIDER` | LLM provider: `openrouter` (remote) or `lmstudio` (local) | `openrouter` |
+| `OPENROUTER_API_KEY` | OpenRouter API key (required when `LLM_PROVIDER=openrouter`) | `sk-or-v1-...` |
+| `OPENROUTER_MODEL` | OpenRouter model | `nvidia/nemotron-3-super-120b-a12b:free` |
+| `LMSTUDIO_BASE_URL` | LM Studio server URL (required when `LLM_PROVIDER=lmstudio`) | `http://localhost:1234/v1` |
+| `LMSTUDIO_MODEL` | LM Studio model name | `gemma-4-e4b` |
+| `POSTGRES_DSN` | PostgreSQL connection string | `postgresql+asyncpg://groove:groove@localhost:5432/groove` |
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/groove` |
 
 Optional variables with defaults in code:
 
 - `SECRET_KEY`: For session security (default: "dev-secret-key-change-in-production")
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: Token expiration time (default: 8 days)
+- `POSTGRES_READONLY_DSN`: Read-only PostgreSQL user for LLM service (default: uses same as `POSTGRES_DSN`)
+- `CORS_ORIGINS`: Comma-separated allowed origins (default: `http://localhost:3000,http://localhost:8000`)
 
 ## Running the Application
 
@@ -266,7 +273,7 @@ The LLM uses a structured 3-part system prompt for reliable SQL generation:
 
 ## Scaling
 
-**Current approach**: Schema-only injection (DDL), aggregate queries, pre-computed materials. Full DDL for 4 tables fits well within Gemini context windows.
+**Current approach**: Schema-only injection (DDL), aggregate queries, pre-computed materials. Full DDL for 4 tables fits well within modern LLM context windows.
 
 **Millions-of-rows strategy**:
 
@@ -281,7 +288,7 @@ For connection scaling, the backend uses a pool of 20 connections (max overflow 
 ## Gotchas & Notes
 
 1. **Meta API creds**: Needed for `POST /api/fetch` to work. Without them, the chat can still answer based on seeded/empty DB data.
-2. **Gemini API key**: Free from Google AI Studio. Without it, the chat endpoint returns errors.
+2. **LLM provider**: Set `LLM_PROVIDER=openrouter` (requires `OPENROUTER_API_KEY`) or `LLM_PROVIDER=lmstudio` (requires LM Studio running on `localhost:1234`). Default is `openrouter`.
 3. **APScheduler + multi-worker**: The PG advisory lock prevents double-fires. For production, use a dedicated scheduler container.
 4. **MongoDB vs JSONB kept separate** — not merged per PRD decision. If asked why, refer to DECISIONS.md #1.
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.

@@ -34,35 +34,43 @@ services:
   backend:
     build: ./backend
     container_name: groove_backend
+    network_mode: host
     depends_on:
       postgres:
         condition: service_healthy
       mongodb:
         condition: service_healthy
     environment:
+      - PYTHONUNBUFFERED=1
       - META_ACCESS_TOKEN=${META_ACCESS_TOKEN}
       - META_AD_ACCOUNT_ID=${META_AD_ACCOUNT_ID}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - POSTGRES_DSN=postgresql+asyncpg://groove:groove@postgres:5432/groove
-      - MONGODB_URI=mongodb://mongodb:27017/groove
+      - LLM_PROVIDER=${LLM_PROVIDER:-openrouter}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-nvidia/nemotron-3-super-120b-a12b:free}
+      - LMSTUDIO_BASE_URL=${LMSTUDIO_BASE_URL:-http://localhost:1234/v1}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-gemma-4-e4b}
+      - POSTGRES_DSN=postgresql+asyncpg://groove:groove@localhost:5432/groove
+      - POSTGRES_READONLY_DSN=${POSTGRES_READONLY_DSN:-}
+      - MONGODB_URI=mongodb://localhost:27017/groove
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:8000}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - ./backend:/app
       - ./config:/app/config:ro
-    ports:
-      - "8000:8000"
     command: >
-      sh -c "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
     build:
       context: ./frontend
       args:
-        - API_URL=http://backend:8000
+        - API_URL=http://localhost:8000
     container_name: groove_frontend
+    network_mode: host
     depends_on:
       - backend
-    ports:
-      - "3000:3000"
+    environment:
+      - HOSTNAME=0.0.0.0
 
 volumes:
   postgres_data:

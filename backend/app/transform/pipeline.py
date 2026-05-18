@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,7 +22,7 @@ def _parse_datetime(val: Any) -> datetime | None:
     for fmt in ['%Y-%m-%dT%H:%M:%S%z', '%Y-%m-%dT%H:%M:%S.%f%z']:
         try:
             dt = datetime.strptime(cleaned, fmt)
-            return dt.astimezone(UTC).replace(tzinfo=None)
+            return dt.astimezone(UTC)
         except (ValueError, OverflowError):
             continue
     logger.warning(f"Could not parse datetime: {val}")
@@ -97,6 +98,22 @@ def transform_ad(raw_ad: dict[str, Any]) -> dict[str, Any]:
         'updated_at': datetime.now(UTC)
     })
 
+def _to_int(val: Any) -> int | None:
+    if val is None or val == '':
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return None
+
+def _to_float(val: Any) -> float | None:
+    if val is None or val == '':
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
 def transform_insight(raw_insight: dict[str, Any]) -> dict[str, Any]:
     """Transform raw insight data to normalized record."""
     # Handle date field - Meta API might return date_start/date_stop
@@ -112,20 +129,23 @@ def transform_insight(raw_insight: dict[str, Any]) -> dict[str, Any]:
 
     ad_id = raw_insight.get('ad_id')
 
+    now = datetime.now(UTC)
     return {
+        'id': str(uuid.uuid4()),
         'ad_id': ad_id,
         'date': date_val,
-        'impressions': raw_insight.get('impressions'),
-        'clicks': raw_insight.get('clicks'),
-        'spend': raw_insight.get('spend'),
-        'reach': raw_insight.get('reach'),
-        'frequency': raw_insight.get('frequency'),
-        'ctr': raw_insight.get('ctr'),
-        'cpc': raw_insight.get('cpc'),
-        'cpm': raw_insight.get('cpm'),
-        'conversions': raw_insight.get('conversions'),
-        'conversion_value': raw_insight.get('conversion_value'),
-        'updated_at': datetime.now(UTC)
+        'impressions': _to_int(raw_insight.get('impressions')),
+        'clicks': _to_int(raw_insight.get('clicks')),
+        'spend': _to_float(raw_insight.get('spend')),
+        'reach': _to_int(raw_insight.get('reach')),
+        'frequency': _to_float(raw_insight.get('frequency')),
+        'ctr': _to_float(raw_insight.get('ctr')),
+        'cpc': _to_float(raw_insight.get('cpc')),
+        'cpm': _to_float(raw_insight.get('cpm')),
+        'conversions': _to_int(raw_insight.get('conversions')),
+        'conversion_value': _to_float(raw_insight.get('conversion_value')),
+        'created_at': now,
+        'updated_at': now,
     }
 
 class TransformPipeline:

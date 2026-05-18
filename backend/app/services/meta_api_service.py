@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import random
 from collections.abc import AsyncGenerator
 from concurrent.futures import ThreadPoolExecutor
@@ -9,10 +8,11 @@ from facebook_business.api import FacebookAdsApi
 from facebook_business.exceptions import FacebookRequestError
 
 from app.core.config import settings
+from app.core.fd_logger import FdLogger
 
 _thread_pool = ThreadPoolExecutor(max_workers=4)
 
-logger = logging.getLogger(__name__)
+logger = FdLogger(__name__)
 
 META_DEFAULT_FIELDS: dict[str, list[str]] = {
     'campaigns': [

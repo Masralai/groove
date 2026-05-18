@@ -20,11 +20,11 @@ class Campaign(Base):
     objective = Column(Text)
     daily_budget = Column(Numeric)
     lifetime_budget = Column(Numeric)
-    created_time = Column(DateTime)
-    start_time = Column(DateTime)
-    stop_time = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_time = Column(DateTime(timezone=True))
+    start_time = Column(DateTime(timezone=True))
+    stop_time = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
 class AdSet(Base):
@@ -38,9 +38,9 @@ class AdSet(Base):
     lifetime_budget = Column(Numeric)
     targeting = Column(JSONB)
     bid_strategy = Column(Text)
-    created_time = Column(DateTime)
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_time = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
 class Ad(Base):
@@ -51,9 +51,9 @@ class Ad(Base):
     name = Column(Text)
     status = Column(Text)
     creative = Column(JSONB)
-    created_time = Column(DateTime)
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_time = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
 class Insight(Base):
@@ -72,8 +72,8 @@ class Insight(Base):
     cpm = Column(Numeric)
     conversions = Column(Integer)
     conversion_value = Column(Numeric)
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (
         UniqueConstraint('ad_id', 'date', name='uq_insights_ad_id_date'),

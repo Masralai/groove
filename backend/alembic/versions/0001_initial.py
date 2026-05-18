@@ -27,11 +27,11 @@ def upgrade() -> None:
         sa.Column("objective", sa.Text(), nullable=True),
         sa.Column("daily_budget", sa.Numeric(), nullable=True),
         sa.Column("lifetime_budget", sa.Numeric(), nullable=True),
-        sa.Column("created_time", sa.DateTime(), nullable=True),
-        sa.Column("start_time", sa.DateTime(), nullable=True),
-        sa.Column("stop_time", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.Column("created_time", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("start_time", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("stop_time", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
 
@@ -45,9 +45,9 @@ def upgrade() -> None:
         sa.Column("lifetime_budget", sa.Numeric(), nullable=True),
         sa.Column("targeting", JSON(), nullable=True),
         sa.Column("bid_strategy", sa.Text(), nullable=True),
-        sa.Column("created_time", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.Column("created_time", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
 
@@ -58,9 +58,9 @@ def upgrade() -> None:
         sa.Column("name", sa.Text(), nullable=True),
         sa.Column("status", sa.Text(), nullable=True),
         sa.Column("creative", JSON(), nullable=True),
-        sa.Column("created_time", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.Column("created_time", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
 
@@ -79,8 +79,8 @@ def upgrade() -> None:
         sa.Column("cpm", sa.Numeric(), nullable=True),
         sa.Column("conversions", sa.Integer(), nullable=True),
         sa.Column("conversion_value", sa.Numeric(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("ad_id", "date", name="uq_insights_ad_id_date"),
     )

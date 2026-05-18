@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import sys
 from pathlib import Path
 
@@ -17,22 +16,33 @@ from app.core.database import Base, engine
 from app.models.mongo import close_mongo_connection
 from app.services.sync_service import data_sync_service
 
-# ── Structured logging ──────────────────────────────────────────────────
-LOG_FORMAT = "[%(asctime)s] %(levelname)-5s  %(name)-35s %(message)s"
-logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO),
-    format=LOG_FORMAT,
-    datefmt="%Y-%m-%d %H:%M:%S",
-    stream=sys.stdout,
-)
+# ── Logging: bypass standard library completely ──────────────────────
+# uvicorn's dictConfig overrides the root logger.  Rather than fight it
+# we write directly to fd 1 via a thin wrapper.  os.write() is proven to
+# produce output visible in `docker compose logs` from every context.
+from app.core.fd_logger import FdLogger
 
-logger = logging.getLogger(__name__)
+logger = FdLogger("app.main")
 
 # Warn if default SECRET_KEY is used in production
 if settings.SECRET_KEY == "dev-secret-key-change-in-production":
     logger.warning(
         "SECRET_KEY is set to the dev default. Override with a strong secret in production."
     )
+
+# Log LLM provider configuration (without exposing full keys)
+if settings.LLM_PROVIDER == "lmstudio":
+    logger.info(
+        f"LM Studio configured: url={settings.LMSTUDIO_BASE_URL}"
+        f" model={settings.LMSTUDIO_MODEL or '(not set)'}"
+    )
+elif settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY != "sk-or-v1-":
+    logger.info(
+        f"OpenRouter configured: model={settings.OPENROUTER_MODEL}"
+        f" key={settings.OPENROUTER_API_KEY[:12]}...{settings.OPENROUTER_API_KEY[-4:]}"
+    )
+else:
+    logger.warning("OpenRouter API key not configured. Chat endpoint will fail.")
 
 # CORS — allow frontend origins from settings, fall back to localhost for dev
 _allowed_origins = settings.CORS_ORIGINS.split(",")
@@ -59,8 +69,7 @@ app.add_middleware(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.warning(
-        "Validation error on %s %s: %s",
-        request.method, request.url.path, exc.errors()
+        f"Validation error on {request.method} {request.url.path}: {exc.errors()}"
     )
     return JSONResponse(
         status_code=422,
@@ -75,8 +84,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     logger.warning(
-        "%s %s → %s: %s",
-        request.method, request.url.path, exc.status_code, exc.detail,
+        f"{request.method} {request.url.path} → {exc.status_code}: {exc.detail}"
     )
     return JSONResponse(
         status_code=exc.status_code,
@@ -90,8 +98,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.exception(
-        "Unhandled exception on %s %s: %s",
-        request.method, request.url.path, exc,
+        f"Unhandled exception on {request.method} {request.url.path}: {exc}"
     )
     return JSONResponse(
         status_code=500,
@@ -108,7 +115,7 @@ scheduler = AsyncIOScheduler()
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting up — log level: %s", settings.LOG_LEVEL)
+    logger.info(f"Starting up — log level: {settings.LOG_LEVEL}")
 
     # Run Alembic migrations to ensure schema is up to date
     alembic_cfg_path = Path(__file__).parent.parent / "alembic.ini"
@@ -122,6 +129,15 @@ async def startup_event():
         logger.warning("alembic.ini not found, using Base.metadata.create_all as fallback")
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+    # Log Meta API key status
+    if settings.META_ACCESS_TOKEN and settings.META_ACCESS_TOKEN != "EAA...":
+        logger.info(
+            f"Meta API configured: account={settings.META_AD_ACCOUNT_ID}"
+            f" token={settings.META_ACCESS_TOKEN[:8]}...{settings.META_ACCESS_TOKEN[-4:]}"
+        )
+    else:
+        logger.warning("Meta API token not configured. Data sync will fail.")
 
     # Start APScheduler for daily sync at midnight
     scheduler.add_job(

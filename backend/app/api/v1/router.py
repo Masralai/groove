@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -6,14 +5,15 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import get_db, get_readonly_db
+from app.core.fd_logger import FdLogger
 from app.repositories.mongo_repository import mongo_repository
 from app.repositories.postgres_repository import postgres_repository
 from app.services.llm_service import llm_service
 from app.services.sync_service import SyncAlreadyRunningError, data_sync_service
 from app.services.validation.sql_validator import sql_validator
 
-logger = logging.getLogger(__name__)
+logger = FdLogger("app.api.v1.router")
 
 
 def _quota_response(retry_after: int, message: str) -> JSONResponse:
@@ -149,7 +149,7 @@ async def get_insights(
 @api_router.post("/chat")
 async def chat_with_data(
     query: dict[str, str],
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_readonly_db)
 ):
     """
     Handle natural language queries about ads data.
@@ -199,7 +199,7 @@ async def chat_with_data(
                 f"{user_query}\n\nPrevious attempt failed validation: "
                 f"{validation_error}. Please correct the SQL."
             )
-            retry_result = await llm_service.generate_sql(retry_prompt)
+            retry_result = await llm_service.generate_sql(retry_prompt, use_cache=False)
 
             if not retry_result["success"]:
                 logger.error(f"SQL regeneration failed: {retry_result['error']}")
@@ -260,7 +260,7 @@ async def chat_with_data(
                 f" {sanitized_error}\n\nOriginal question:"
                 f" {user_query}\n\nPlease generate a corrected SQL query."
             )
-            repair_result = await llm_service.generate_sql(repair_prompt)
+            repair_result = await llm_service.generate_sql(repair_prompt, use_cache=False)
 
             if repair_result["success"]:
                 # Validate the repaired SQL

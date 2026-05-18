@@ -10,7 +10,9 @@ class TestSettings(BaseSettings):
     PROJECT_NAME: str = "Groove"
     META_ACCESS_TOKEN: str = "test_token"
     META_AD_ACCOUNT_ID: str = "act_123456"
-    GEMINI_API_KEY: str = "test_gemini_key"
+    LLM_PROVIDER: str = "openrouter"
+    OPENROUTER_API_KEY: str = "sk-or-v1-test-key"
+    OPENROUTER_MODEL: str = "test-model"
     POSTGRES_DSN: PostgresDsn = "postgresql+asyncpg://user:pass@localhost/db"
     MONGODB_URI: str = "mongodb://localhost:27017/db"
 
