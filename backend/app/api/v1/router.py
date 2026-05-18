@@ -38,6 +38,20 @@ def _check_quota(result: dict) -> JSONResponse | None:
 
 api_router = APIRouter()
 
+
+async def _text_fallback(user_query: str, sql_result: dict | None = None) -> dict:
+    """Return a text-only answer when SQL generation/execution fails."""
+    llm_response = (sql_result or {}).get("llm_response", "")
+    if llm_response:
+        return {"answer": llm_response, "sql": None, "data": []}
+    summary_result = await llm_service.summarize_results(user_query, "", [])
+    return {
+        "answer": summary_result.get("summary", "Could not process this query."),
+        "sql": None,
+        "data": []
+    }
+
+
 # Health check endpoint
 @api_router.get("/health")
 async def health_check():
@@ -169,22 +183,47 @@ async def chat_with_data(
         )
 
     try:
+        # Step 0: Gather data context for LLM
+        try:
+            date_range = await db.execute(text(
+                "SELECT MIN(date), MAX(date) FROM insights"
+            ))
+            date_row = date_range.fetchone()
+            campaigns = await db.execute(text(
+                "SELECT name FROM campaigns ORDER BY name"
+            ))
+            campaign_names = [row[0] for row in campaigns.fetchall()]
+            insight_count = await db.execute(text(
+                "SELECT COUNT(*) FROM insights"
+            ))
+            count_row = insight_count.fetchone()
+            data_context_parts = []
+            if date_row and date_row[0]:
+                data_context_parts.append(
+                    f"Date range in insights: {date_row[0]} to {date_row[1]}"
+                )
+            if campaign_names:
+                data_context_parts.append(
+                    f"Campaigns: {', '.join(campaign_names)}"
+                )
+            if count_row:
+                data_context_parts.append(f"Total insight rows: {count_row[0]}")
+            data_context = "\n".join(data_context_parts)
+            if data_context:
+                logger.info(f"Data context: {data_context}")
+        except Exception:
+            data_context = ""
+
         # Step 1: Generate SQL from natural language
         logger.info(f"Generating SQL for query: {user_query}")
-        sql_result = await llm_service.generate_sql(user_query)
+        sql_result = await llm_service.generate_sql(user_query, data_context=data_context)
 
         if not sql_result["success"]:
-            logger.error(f"SQL generation failed: {sql_result['error']}")
             quota_resp = _check_quota(sql_result)
             if quota_resp:
                 return quota_resp
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "error": "sql_generation_failed",
-                    "message": f"I couldn't generate a valid query. {sql_result['error']}"
-                }
-            )
+            logger.info(f"SQL generation failed, using text-only fallback")
+            return await _text_fallback(user_query, sql_result)
 
         generated_sql = sql_result["sql"]
         logger.info(f"Generated SQL: {generated_sql}")
@@ -206,16 +245,8 @@ async def chat_with_data(
                 quota_resp = _check_quota(retry_result)
                 if quota_resp:
                     return quota_resp
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "error": "sql_validation_failed",
-                        "message": (
-                            "I couldn't generate a valid query after multiple attempts. "
-                            "Try rephrasing your question."
-                        )
-                    }
-                )
+                logger.info("Retry SQL generation failed, using text-only fallback")
+                return await _text_fallback(user_query)
 
             generated_sql = retry_result["sql"]
             logger.info(f"Regenerated SQL: {generated_sql}")
@@ -224,25 +255,15 @@ async def chat_with_data(
             is_valid, validation_error = sql_validator.validate_sql(generated_sql)
             if not is_valid:
                 logger.error(f"SQL validation failed on retry: {validation_error}")
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "error": "sql_validation_failed",
-                        "message": (
-                            "I couldn't generate a valid query that passes security checks. "
-                            "Try rephrasing your question."
-                        )
-                    }
-                )
+                logger.info("Retry SQL validation failed, using text-only fallback")
+                return await _text_fallback(user_query)
 
         # Step 3: Execute the SQL query
         logger.info(f"Executing SQL: {generated_sql}")
         try:
-            # Add statement timeout for safety
             await db.execute(text("SET statement_timeout = '30s'"))
             result = await db.execute(text(generated_sql))
 
-            # Convert results to list of dictionaries
             columns = result.keys()
             rows = result.fetchall()
             query_results = [dict(zip(columns, row)) for row in rows]
@@ -253,7 +274,6 @@ async def chat_with_data(
             logger.error(f"SQL execution failed: {str(e)}")
             sanitized_error = sql_validator.sanitize_error_message(str(e))
 
-            # Try to get LLM to fix the SQL
             logger.info("Attempting to auto-repair SQL with error context")
             repair_prompt = (
                 "The previous SQL query failed with error:"
@@ -263,7 +283,6 @@ async def chat_with_data(
             repair_result = await llm_service.generate_sql(repair_prompt, use_cache=False)
 
             if repair_result["success"]:
-                # Validate the repaired SQL
                 is_valid, validation_error = sql_validator.validate_sql(repair_result["sql"])
                 if is_valid:
                     try:
@@ -272,49 +291,26 @@ async def chat_with_data(
                         columns = result.keys()
                         rows = result.fetchall()
                         query_results = [dict(zip(columns, row)) for row in rows]
-                        generated_sql = repair_result["sql"]  # Use the repaired SQL
+                        generated_sql = repair_result["sql"]
                         logger.info(
                             "Repaired SQL executed successfully, returned"
                             f" {len(query_results)} rows"
                         )
                     except Exception as retry_e:
                         logger.error(f"Repaired SQL also failed: {str(retry_e)}")
-                        return JSONResponse(
-                            status_code=400,
-                            content={
-                                "error": "sql_execution_failed",
-                                "message": (
-                                    "I couldn't execute a valid query. The data might not"
-                                    " exist for your question or there may be a technical issue."
-                                )
-                            }
-                        )
+                        logger.info("Repair failed, using text-only fallback")
+                        return await _text_fallback(user_query)
                 else:
                     logger.error(f"Repaired SQL failed validation: {validation_error}")
-                    return JSONResponse(
-                        status_code=400,
-                        content={
-                            "error": "sql_validation_failed",
-                            "message": (
-                                "I couldn't generate a valid query after attempting to"
-                                " fix the error. Try rephrasing your question."
-                            )
-                        }
-                    )
+                    logger.info("Repair validation failed, using text-only fallback")
+                    return await _text_fallback(user_query)
             else:
                 logger.error(f"Failed to generate repair SQL: {repair_result['error']}")
                 quota_resp = _check_quota(repair_result)
                 if quota_resp:
                     return quota_resp
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "error": "sql_repair_failed",
-                        "message": (
-                            "I couldn't generate a valid query. Try rephrasing your question."
-                        )
-                    }
-                )
+                logger.info("Repair SQL generation failed, using text-only fallback")
+                return await _text_fallback(user_query)
 
         # Step 4: Summarize the results
         logger.info("Generating summary of results")
@@ -324,7 +320,6 @@ async def chat_with_data(
 
         if not summary_result["success"]:
             logger.warning(f"Summary generation failed: {summary_result['error']}")
-            # Provide a basic summary if LLM fails
             if not query_results:
                 summary = (
                     "No data found for your query. Try a different date range or campaign."
@@ -337,7 +332,6 @@ async def chat_with_data(
         else:
             summary = summary_result["summary"]
 
-        # Step 5: Return the response
         return {
             "answer": summary,
             "sql": generated_sql,

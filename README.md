@@ -20,6 +20,38 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 - [Future Work](#future-work)
 - [Gotchas & Notes](#gotchas--notes)
 
+## Quickstart
+
+After `docker compose up --build`, all services start. Open a terminal to chat with your data:
+
+```bash
+# Query 1 — Count campaigns
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query":"How many campaigns do we have?"}'
+
+# Query 2 — Check last week's performance
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Which campaign had the highest ROI last week?"}'
+
+# Query 3 — Ask about specific days
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query":"How much did we spend on Tuesday?"}'
+```
+
+Each request returns a JSON response with three fields:
+```json
+{"answer": "...", "sql": "...", "data": [...]}
+```
+
+- **answer** — plain-English explanation of the result
+- **sql** — the generated PostgreSQL query (or `null` if text-only)
+- **data** — query results as an array of row objects
+
+> **Note**: LM Studio processes queries on your local hardware — complex reasoning takes about **1–2 minutes** per query. The web UI is available at [http://localhost:3000/chat](http://localhost:3000/chat).
+
 ## Overview
 
 Build a production-ready service that integrates with the Meta Marketing API, fetches ads data into a persistent datastore, and provides a natural language chatbot interface for querying the data.
@@ -293,7 +325,7 @@ For connection scaling, the backend uses a pool of 20 connections (max overflow 
 4. **MongoDB vs JSONB kept separate** — not merged per PRD decision. If asked why, refer to DECISIONS.md #1.
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
 6. **Frontend DESIGN.md**: See `DESIGN.md` at project root for the design system reference (Grafbase-inspired engineering aesthetic). The Tailwind v4 `@theme` block in `frontend/styles/globals.css` implements these tokens.
-7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. Acceptable latency (3-4s total) for single-user tool.
+7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. With LM Studio locally, queries take ~1-2 min (model reasoning). With OpenRouter (cloud), latency drops to 2-15s.
 8. **Production PostgreSQL user**: For security, use a dedicated read-only user for the LLM service (see DECISIONS.md #11).
 9. **Frontend docker-compose**: The `frontend` service in `docker-compose.yml` builds with `API_URL=http://backend:8000` and exposes port 3000. All four services (postgres, mongodb, backend, frontend) start together with `docker compose up --build`.
-10. **Full-stack verification**: The frontend at `localhost:3000` proxies `/api/*` to the backend via Next.js rewrites. `curl localhost:3000/api/health` works without hitting the backend directly.
+10. **Full-stack verification**: The frontend at `localhost:3000` proxies `/api/*` to the backend via Next.js rewrites. `curl localhost:3000/api/health` works without hitting the backend directly. Note: the proxy can be unreliable for long-running queries due to `network_mode: host` — use direct backend (`:8000`) for terminal use.

@@ -24,7 +24,6 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nodeuser:nodegroup /app/public ./public
-
 # Switch to non-root user
 USER 1001
 

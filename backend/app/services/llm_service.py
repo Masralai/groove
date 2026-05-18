@@ -260,6 +260,13 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
          AND i.date >= CURRENT_DATE - INTERVAL '7 days'
        GROUP BY i.date
        ORDER BY i.date;
+
+Example 5:
+User: "How much did we spend on Tuesday?"
+SQL: SELECT SUM(spend) AS total_spend
+       FROM insights
+       WHERE EXTRACT(DOW FROM date) = 2 -- 0=Sunday, 1=Monday, 2=Tuesday, ..., 6=Saturday
+         AND date >= CURRENT_DATE - INTERVAL '14 days';
 """
 
     def _build_system_prompt(self) -> str:
@@ -286,10 +293,13 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
             " formatting for monetary values\n"
             "8. Focus on advertising metrics: spend, impressions, clicks,"
             " conversions, CTR, CPC, CPM, reach, frequency\n"
-            "9. The schema has NO platform/positioning column. You MUST still"
-            " generate a SQL query even for impossible questions."
-            " For 'Facebook vs Instagram'-like questions return:"
-            " SELECT 'Schema has no platform column — cannot compare platforms.' AS message"
+            "9. For day-of-week queries (e.g. 'Tuesday'), use EXTRACT(DOW FROM date)"
+            " (0=Sunday, 1=Monday, ..., 6=Saturday)."
+            " First check the available date range in insights.\n"
+            "10. If you cannot generate a valid SELECT query,"
+            " explain in plain English why."
+            " Do not guess PostgreSQL syntax you're unsure about."
+            " Prefer returning an explanation over generating incorrect SQL."
         )
 
         return f"""{role_definition}
@@ -300,7 +310,9 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
 
 {constraints}"""
 
-    async def generate_sql(self, user_query: str, use_cache: bool = True) -> dict[str, Any]:
+    async def generate_sql(
+        self, user_query: str, data_context: str = "", use_cache: bool = True,
+    ) -> dict[str, Any]:
         """
         Generate SQL from user query using LLM.
 
@@ -308,6 +320,8 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
 
         Args:
             user_query: The natural language query.
+            data_context: Summary of actual data in DB (date ranges, campaign names, etc.)
+                          to help the LLM generate better SQL. When provided, cache is bypassed.
             use_cache: Whether to check/write the cache. Set to ``False`` for
                        repair/retry prompts so the LLM is called fresh.
 
@@ -315,13 +329,15 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
             Dict with keys: success (bool), sql (str), error (str),
             error_type (str), retry_after (int)
         """
-        if use_cache:
+        if use_cache and not data_context:
             cached = self._cache_get(user_query)
             if cached is not None:
                 logger.info(f"SQL cache hit for query: {user_query[:60]}")
                 return dict(cached)
 
         system_prompt = self._build_system_prompt()
+        if data_context:
+            system_prompt += f"\n--- Data Context ---\n{data_context}\n"
 
         result = await self._call_llm(user_query, system_prompt=system_prompt)
         if not result["success"]:
@@ -358,6 +374,7 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
             output = {
                 "success": False,
                 "sql": "",
+                "llm_response": generated_text,
                 "error": "Generated SQL does not start with SELECT or WITH",
                 "error_type": "invalid_sql",
                 "retry_after": 0,
@@ -388,6 +405,27 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
             error_type (str), retry_after (int)
         """
         if not query_results:
+            explain_prompt = (
+                f"User asked: {user_query}\nGenerated SQL: {sql}\n"
+                "The SQL query returned zero results."
+                " Explain why in 1-2 sentences. Be specific about what data"
+                " exists (date ranges, campaign names, etc.)."
+                " If the question doesn't make sense based on available data, say so."
+            )
+            explain_result = await self._call_llm(
+                explain_prompt,
+                system_prompt=(
+                    "You are a Meta Ads data analyst. Answer concisely in 1-2 sentences."
+                ),
+            )
+            if explain_result["success"]:
+                return {
+                    "success": True,
+                    "summary": explain_result["text"],
+                    "error": "",
+                    "error_type": "",
+                    "retry_after": 0,
+                }
             return {
                 "success": True,
                 "summary": "No data found for your query.",

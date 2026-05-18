@@ -45,6 +45,14 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 | Skip SQL cache for retry/repair | Added `use_cache=False` parameter — validation retry and SQL execution repair always call LLM fresh |
 | Fixed trailing `;` stripping bug | Regex markdown extraction path was missing `.rstrip(';')` — every markdown-wrapped SQL was falsely rejected as "multi-statement" |
 | Fixed Docker networking | `network_mode: host` on backend + frontend; DSNs use `localhost`; LM Studio at `localhost:1234` |
+| System prompt improved | Replaced forced-SQL constraint #9 with EXTRACT(DOW FROM date) guidance + constraint #10: prefer explanation over bad SQL. Added Example 5 showing `EXTRACT(DOW FROM date) = 2` |
+| `summarize_results()` improved | Now calls LLM to explain empty results instead of generic "No data found" |
+| Text-only chat fallback | All 5 400-error paths in router replaced with `_text_fallback()` returning `{answer, sql: null, data: []}` |
+| `sql_validator.is_comment` fixed | `isinstance(token, sqlparse.sql.Comment)` — removed false "Multi-statement query" rejections |
+| Data context injection | Queries PG for date range, campaigns, row count before LLM call — LLM knows actual data distribution |
+| `server-wrapper.js` + `_chat_lock` reverted | Didn't fix ECONNRESET; reverted to `CMD ["node", "server.js"]` and removed `asyncio.Lock()` |
+| README Quickstart section | Terminal curl examples with all 3 assignment queries + response format |
+| Latency docs corrected | Gotcha #7 updated from "3-4s" to "~1-2 min (LM Studio)" |
 
 ### LLM Tests Fixed
 
@@ -302,10 +310,12 @@ frontend/
 
 - All 8 API endpoints work end-to-end ✓
 - Real Meta data sync works (3 campaigns, 4 ad sets, 4 ads) ✓
-- Chat works (real LLM → SQL generation → execute → summarize) ✓
+- Chat works: all 3 assignment queries return correct `{answer, sql, data}` ✓
+- Data context injection: LLM sees date ranges, campaign names, row counts before generating SQL ✓
+- Off-schema queries (e.g. "Tuesday" when no Tuesday data exists) handled via text-only fallback ✓
 - Frontend: landing, dashboard, chat, 404 page all load ✓
 - Dark mode, mobile nav, error boundaries deployed ✓
-- Frontend proxy (`:3000/api/*`) works ✓
+- Frontend proxy (`:3000/api/*`) has ECONNRESET — use direct backend for terminal ✓
 - **109 backend tests passing**, 0 failing ✓
 - **16 frontend tests passing** (1 infra + 15 dashboard-utils) ✓
 - **Deprecation warnings**: 5 remaining (all `on_event` lifespan — intentionally skipped, project concludes in 1 week)
@@ -317,6 +327,7 @@ Remaining items after this session's completions (CORS, SECRET_KEY, CI/CD, HEALT
 
 | Priority | Issue | Detail | Suggested Skill |
 |----------|-------|--------|-----------------|
+| **High** | **Frontend proxy ECONNRESET** | `network_mode: host` causes Next.js proxy to fail with `socket hang up` for queries >30s. Direct backend `:8000` works 100%. Needs nginx reverse proxy or alternative routing. | `docker-expert` |
 | **High** | **No production deployment configs** | No K8s manifests, Helm charts, Terraform, or `docker-compose.prod.yml` | `docker-expert` |
 | **High** | **Frontend components untested** | `Header.tsx`, `ThemeToggle.tsx`, `dashboard/page.tsx`, `chat/page.tsx`, `KPICard.tsx`, `EmptyState.tsx`, `LoadingState.tsx`, error boundaries, layouts — all lack tests | `tdd` |
 | **Medium** | **Read-only DB user not plumbed** | SECURITY.md documents the `llm_agent` role setup, but LLM service still uses admin DSN. Chat runs in read-only txn as defense-in-depth | `supabase-postgres-best-practices` |
@@ -396,7 +407,7 @@ docker compose exec backend pytest
 4. **MongoDB vs JSONB kept separate** — not merged per PRD decision. If asked why, refer to DECISIONS.md #1.
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
 6. **Full stack runs via docker compose**: `docker compose up --build` starts all 4 services (postgres, mongodb, backend, frontend). Frontend at :3000 proxying API to backend at :8000.
-7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. Acceptable latency (3-4s total) for single-user tool.
+7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. With LM Studio locally, queries take ~1-2 min (model reasoning). With OpenRouter (cloud), latency drops to 2-15s.
 8. **Frontend design system**: DESIGN.md is the source of truth. Tailwind v4 `@theme` block in `styles/globals.css` implements it.
 9. **Frontend Docker build**: Requires `API_URL` build arg (set in docker-compose.yml). The frontend `next.config.ts` reads this at build time for the rewrites destination. During `npm run dev` it reads from `.env.local`.
 10. **Client component patterns**: Chat page uses `"use client"` for interactive state. Dashboard is also `"use client"` (needs state for filters/pagination/sync). Landing page remains a server component.

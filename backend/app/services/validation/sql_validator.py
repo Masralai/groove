@@ -43,7 +43,7 @@ class SQLValidator:
             parsed = sqlparse.parse(sql)[0]
             # Remove comments
             stripped_sql = ''.join([str(token) for token in parsed.tokens
-                                  if not token.is_comment])
+                                  if not isinstance(token, sqlparse.sql.Comment)])
             stripped_sql = stripped_sql.strip()
         except Exception as e:
             logger.warning(f"Error parsing SQL with sqlparse: {e}")
