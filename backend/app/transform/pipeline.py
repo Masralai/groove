@@ -1,12 +1,12 @@
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
 import json
 import logging
 import re
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-def _parse_datetime(val: Any) -> Optional[datetime]:
+def _parse_datetime(val: Any) -> datetime | None:
     if val is None:
         return None
     if isinstance(val, datetime):
@@ -21,13 +21,13 @@ def _parse_datetime(val: Any) -> Optional[datetime]:
     for fmt in ['%Y-%m-%dT%H:%M:%S%z', '%Y-%m-%dT%H:%M:%S.%f%z']:
         try:
             dt = datetime.strptime(cleaned, fmt)
-            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt.astimezone(UTC).replace(tzinfo=None)
         except (ValueError, OverflowError):
             continue
     logger.warning(f"Could not parse datetime: {val}")
     return None
 
-def transform_campaign(raw_campaign: Dict[str, Any]) -> Dict[str, Any]:
+def transform_campaign(raw_campaign: dict[str, Any]) -> dict[str, Any]:
     """Transform raw campaign data to normalized record."""
     return {
         'id': raw_campaign.get('id'),
@@ -39,7 +39,7 @@ def transform_campaign(raw_campaign: Dict[str, Any]) -> Dict[str, Any]:
         'created_time': _parse_datetime(raw_campaign.get('created_time')),
         'start_time': _parse_datetime(raw_campaign.get('start_time')),
         'stop_time': _parse_datetime(raw_campaign.get('stop_time')),
-        'updated_at': datetime.now(timezone.utc)
+        'updated_at': datetime.now(UTC)
     }
 
 def _serialize(val: Any) -> Any:
@@ -64,13 +64,13 @@ def _serialize(val: Any) -> Any:
 
 _JSON_DUMP_FIELDS = {'targeting', 'creative'}
 
-def _prepare_record(record: Dict[str, Any]) -> Dict[str, Any]:
+def _prepare_record(record: dict[str, Any]) -> dict[str, Any]:
     return {
         k: json.dumps(v) if k in _JSON_DUMP_FIELDS and not isinstance(v, str) else v
         for k, v in record.items()
     }
 
-def transform_ad_set(raw_ad_set: Dict[str, Any]) -> Dict[str, Any]:
+def transform_ad_set(raw_ad_set: dict[str, Any]) -> dict[str, Any]:
     """Transform raw ad set data to normalized record."""
     return _prepare_record({
         'id': raw_ad_set.get('id'),
@@ -82,10 +82,10 @@ def transform_ad_set(raw_ad_set: Dict[str, Any]) -> Dict[str, Any]:
         'targeting': _serialize(raw_ad_set.get('targeting')),
         'bid_strategy': raw_ad_set.get('bid_strategy'),
         'created_time': _parse_datetime(raw_ad_set.get('created_time')),
-        'updated_at': datetime.now(timezone.utc)
+        'updated_at': datetime.now(UTC)
     })
 
-def transform_ad(raw_ad: Dict[str, Any]) -> Dict[str, Any]:
+def transform_ad(raw_ad: dict[str, Any]) -> dict[str, Any]:
     """Transform raw ad data to normalized record."""
     return _prepare_record({
         'id': raw_ad.get('id'),
@@ -94,10 +94,10 @@ def transform_ad(raw_ad: Dict[str, Any]) -> Dict[str, Any]:
         'status': raw_ad.get('status'),
         'creative': _serialize(raw_ad.get('creative')),
         'created_time': _parse_datetime(raw_ad.get('created_time')),
-        'updated_at': datetime.now(timezone.utc)
+        'updated_at': datetime.now(UTC)
     })
 
-def transform_insight(raw_insight: Dict[str, Any]) -> Dict[str, Any]:
+def transform_insight(raw_insight: dict[str, Any]) -> dict[str, Any]:
     """Transform raw insight data to normalized record."""
     # Handle date field - Meta API might return date_start/date_stop
     date_val = raw_insight.get('date_start') or raw_insight.get('date')
@@ -109,7 +109,7 @@ def transform_insight(raw_insight: Dict[str, Any]) -> Dict[str, Any]:
             except ValueError:
                 # If parsing fails, keep as string
                 pass
-    
+
     ad_id = raw_insight.get('ad_id')
 
     return {
@@ -125,29 +125,29 @@ def transform_insight(raw_insight: Dict[str, Any]) -> Dict[str, Any]:
         'cpm': raw_insight.get('cpm'),
         'conversions': raw_insight.get('conversions'),
         'conversion_value': raw_insight.get('conversion_value'),
-        'updated_at': datetime.now(timezone.utc)
+        'updated_at': datetime.now(UTC)
     }
 
 class TransformPipeline:
     """Pipeline for transforming raw API data to normalized records."""
-    
+
     @staticmethod
-    def transform_campaigns(raw_campaigns: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def transform_campaigns(raw_campaigns: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Transform multiple campaigns."""
         return [transform_campaign(campaign) for campaign in raw_campaigns]
-    
+
     @staticmethod
-    def transform_ad_sets(raw_ad_sets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def transform_ad_sets(raw_ad_sets: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Transform multiple ad sets."""
         return [transform_ad_set(ad_set) for ad_set in raw_ad_sets]
-    
+
     @staticmethod
-    def transform_ads(raw_ads: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def transform_ads(raw_ads: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Transform multiple ads."""
         return [transform_ad(ad) for ad in raw_ads]
-    
+
     @staticmethod
-    def transform_insights(raw_insights: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def transform_insights(raw_insights: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Transform multiple insights."""
         return [transform_insight(insight) for insight in raw_insights]
 

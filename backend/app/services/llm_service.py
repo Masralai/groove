@@ -1,18 +1,20 @@
-from google import genai
-from typing import Dict, Any, Optional, List
 import logging
 import re
+from typing import Any
+
+from google import genai
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class LLMService:
     """Service for Gemini LLM API integration for text-to-SQL generation and result summarization."""
-    
+
     def __init__(self):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.model_name = settings.GEMINI_MODEL_NAME
-        
+
     def _get_schema_ddl(self) -> str:
         """Get the DDL for all tables to inject into the system prompt."""
         return """
@@ -74,7 +76,7 @@ CREATE TABLE insights (
     updated_at TIMESTAMP
 );
 """
-    
+
     def _get_example_queries(self) -> str:
         """Get example queries for few-shot learning."""
         return """
@@ -116,14 +118,14 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
        GROUP BY i.date 
        ORDER BY i.date;
 """
-    
+
     def _build_system_prompt(self) -> str:
         """Build the system prompt with role definition, schema injection, and constraints."""
         role_definition = """You are a Meta Ads data analyst with PostgreSQL access to campaigns, ad_sets, ads, and insights tables. Your expertise is in converting natural language questions about advertising performance into accurate SQL queries."""
-        
+
         schema_injection = f"""Database Schema:
 {self._get_schema_ddl()}"""
-        
+
         constraints = """Constraints:
 1. Generate ONLY SELECT queries (WITH clauses allowed for CTEs)
 2. Never generate DDL, DML, or transaction control statements
@@ -141,8 +143,8 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
 {self._get_example_queries()}
 
 {constraints}"""
-    
-    async def generate_sql(self, user_query: str) -> Dict[str, Any]:
+
+    async def generate_sql(self, user_query: str) -> dict[str, Any]:
         """
         Generate SQL from user query using Gemini.
         
@@ -151,17 +153,17 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
         """
         try:
             system_prompt = self._build_system_prompt()
-            
+
             # Combine system prompt and user query
             full_prompt = f"{system_prompt}\n\nUser Question: {user_query}\n\nSQL Query:"
-            
+
             # Generate content
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=full_prompt,
             )
             generated_text = response.text.strip()
-            
+
             # Extract SQL from response (handle potential markdown formatting)
             sql_match = re.search(r'```sql\n(.*?)\n```', generated_text, re.DOTALL)
             if sql_match:
@@ -179,11 +181,11 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
                         if line.strip().endswith(';') or line.strip() == '':
                             break
                 sql = '\n'.join(sql_lines).strip()
-                
+
                 # Remove trailing semicolon if present
                 if sql.endswith(';'):
                     sql = sql[:-1]
-            
+
             # Basic validation - ensure it starts with SELECT or WITH
             sql_upper = sql.strip().upper()
             if not (sql_upper.startswith('SELECT') or sql_upper.startswith('WITH')):
@@ -192,13 +194,13 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
                     "sql": "",
                     "error": "Generated SQL does not start with SELECT or WITH"
                 }
-            
+
             return {
                 "success": True,
                 "sql": sql,
                 "error": ""
             }
-            
+
         except Exception as e:
             logger.error(f"Error generating SQL: {str(e)}")
             return {
@@ -206,8 +208,8 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
                 "sql": "",
                 "error": f"Failed to generate SQL: {str(e)}"
             }
-    
-    async def summarize_results(self, user_query: str, sql: str, query_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+
+    async def summarize_results(self, user_query: str, sql: str, query_results: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Summarize query results using Gemini.
         
@@ -221,17 +223,17 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
                     "summary": "No data found for your query. Try a different date range or campaign.",
                     "error": ""
                 }
-            
+
             # Format results for the prompt
             results_text = f"Query Results ({len(query_results)} rows):\n"
             for i, row in enumerate(query_results[:5]):  # Show first 5 rows
                 results_text += f"Row {i+1}: {row}\n"
-            
+
             if len(query_results) > 5:
                 results_text += f"... and {len(query_results) - 5} more rows\n"
-            
+
             system_prompt = """You are a Meta Ads data analyst. Your task is to convert query results into a clear, concise summary in 1-2 sentences. Focus on the key insights and use appropriate formatting (currency for monetary values, percentages for rates, etc.). Be honest about limitations in the data."""
-            
+
             full_prompt = f"""{system_prompt}
 
 User's Original Question: {user_query}
@@ -241,19 +243,19 @@ Generated SQL: {sql}
 {results_text}
 
 Provide a brief summary (1-2 sentences) of what the data shows in response to the user's question."""
-            
+
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=full_prompt,
             )
             summary = response.text.strip()
-            
+
             return {
                 "success": True,
                 "summary": summary,
                 "error": ""
             }
-            
+
         except Exception as e:
             logger.error(f"Error summarizing results: {str(e)}")
             return {

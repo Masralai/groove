@@ -1,12 +1,13 @@
 import asyncio
 import logging
-from typing import AsyncGenerator, Dict, List, Optional
-import time
 import random
+from collections.abc import AsyncGenerator
 from concurrent.futures import ThreadPoolExecutor
-from facebook_business.api import FacebookAdsApi
+
 from facebook_business.adobjects.adaccount import AdAccount
+from facebook_business.api import FacebookAdsApi
 from facebook_business.exceptions import FacebookRequestError
+
 from app.core.config import settings
 
 _thread_pool = ThreadPoolExecutor(max_workers=4)
@@ -22,11 +23,11 @@ META_DEFAULT_FIELDS = {
 
 class MetaAPIService:
     """Service for interacting with Meta Marketing API using facebook-business SDK."""
-    
+
     def __init__(self):
         self.api_initialized = False
         self.ad_account = None
-        
+
     def _meta_config(self, key: str, default: str | list[str] | dict | None = None):
         return settings.meta_ads.get(key, default) if isinstance(settings.meta_ads, dict) else default
 
@@ -41,21 +42,21 @@ class MetaAPIService:
             self.ad_account = AdAccount(settings.META_AD_ACCOUNT_ID)
             self.api_initialized = True
             logger.info("Facebook Ads API initialized")
-    
+
     async def _handle_rate_limit(self, attempt: int):
         """Handle rate limiting with exponential backoff."""
         if attempt > 0:
             wait_time = (2 ** attempt) + random.uniform(0, 1)
             logger.warning(f"Rate limit hit, waiting {wait_time:.2f}s before retry {attempt}")
             await asyncio.sleep(wait_time)
-    
-    async def fetch_campaigns(self, fields: Optional[List[str]] = None) -> AsyncGenerator[Dict, None]:
+
+    async def fetch_campaigns(self, fields: list[str] | None = None) -> AsyncGenerator[dict, None]:
         """Fetch campaigns with pagination and rate limit handling."""
         await self.initialize()
-        
+
         if fields is None:
             fields = self._meta_config('fields', {}).get('campaigns', META_DEFAULT_FIELDS['campaigns'])
-            
+
         params = {
             'limit': 100
         }
@@ -73,13 +74,13 @@ class MetaAPIService:
                         params=params
                     ))
                 )
-                
+
                 for campaign in campaigns:
                     yield dict(campaign)
-                
+
                 attempt = 0
                 break
-                
+
             except FacebookRequestError as e:
                 if e.api_error_code() == 80003:  # Rate limit error
                     attempt += 1
@@ -93,14 +94,14 @@ class MetaAPIService:
             except Exception as e:
                 logger.error(f"Unexpected error fetching campaigns: {e}")
                 raise
-    
-    async def fetch_ad_sets(self, fields: Optional[List[str]] = None) -> AsyncGenerator[Dict, None]:
+
+    async def fetch_ad_sets(self, fields: list[str] | None = None) -> AsyncGenerator[dict, None]:
         """Fetch ad sets with pagination and rate limit handling."""
         await self.initialize()
-        
+
         if fields is None:
             fields = self._meta_config('fields', {}).get('ad_sets', META_DEFAULT_FIELDS['ad_sets'])
-            
+
         params = {
             'limit': 100
         }
@@ -118,13 +119,13 @@ class MetaAPIService:
                         params=params
                     ))
                 )
-                
+
                 for ad_set in ad_sets:
                     yield dict(ad_set)
-                
+
                 attempt = 0
                 break
-                
+
             except FacebookRequestError as e:
                 if e.api_error_code() == 80003:
                     attempt += 1
@@ -138,14 +139,14 @@ class MetaAPIService:
             except Exception as e:
                 logger.error(f"Unexpected error fetching ad sets: {e}")
                 raise
-    
-    async def fetch_ads(self, fields: Optional[List[str]] = None) -> AsyncGenerator[Dict, None]:
+
+    async def fetch_ads(self, fields: list[str] | None = None) -> AsyncGenerator[dict, None]:
         """Fetch ads with pagination and rate limit handling."""
         await self.initialize()
-        
+
         if fields is None:
             fields = self._meta_config('fields', {}).get('ads', META_DEFAULT_FIELDS['ads'])
-            
+
         params = {
             'limit': 100
         }
@@ -163,13 +164,13 @@ class MetaAPIService:
                         params=params
                     ))
                 )
-                
+
                 for ad in ads:
                     yield dict(ad)
-                
+
                 attempt = 0
                 break
-                
+
             except FacebookRequestError as e:
                 if e.api_error_code() == 80003:  # Rate limit error
                     attempt += 1
@@ -183,30 +184,30 @@ class MetaAPIService:
             except Exception as e:
                 logger.error(f"Unexpected error fetching ads: {e}")
                 raise
-    
+
     async def fetch_insights(
-        self, 
-        fields: Optional[List[str]] = None,
-        time_range: Optional[Dict[str, str]] = None,
+        self,
+        fields: list[str] | None = None,
+        time_range: dict[str, str] | None = None,
         level: str = 'ad'
-    ) -> AsyncGenerator[Dict, None]:
+    ) -> AsyncGenerator[dict, None]:
         """Fetch insights with pagination, rate limit handling, and time-range filtering."""
         await self.initialize()
-        
+
         if fields is None:
             fields = self._meta_config('fields', {}).get('insights', META_DEFAULT_FIELDS['insights'])
-            
+
         params = {
             'limit': 100,
             'level': level
         }
-        
+
         if time_range:
             params['time_range'] = time_range
-        
+
         attempt = 0
         max_retries = 5
-        
+
         while attempt <= max_retries:
             try:
                 loop = asyncio.get_event_loop()
@@ -217,13 +218,13 @@ class MetaAPIService:
                         params=params
                     ))
                 )
-                
+
                 for insight in insights:
                     yield dict(insight)
-                
+
                 attempt = 0
                 break
-                
+
             except FacebookRequestError as e:
                 if e.api_error_code() == 80003:  # Rate limit error
                     attempt += 1
