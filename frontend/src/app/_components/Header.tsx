@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -15,41 +16,35 @@ export default function Header() {
   }, [isMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 bg-canvas-white border-b border-cloud-border">
-        <div className="max-w-7xl mx-auto px-10 h-18 flex items-center justify-between">
-        <div className="flex items-center space-x-8">
-          <Link href="/" className="flex items-center space-x-2">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="28" height="28" rx="6" fill="url(#groove-logo-gradient)" />
-              <path d="M8 14L12 10L16 14L20 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M8 18L12 14L16 18L20 14" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
-              <defs>
-                <linearGradient id="groove-logo-gradient" x1="0" y1="0" x2="28" y2="28">
-                  <stop offset="0%" stopColor="#19a05f" />
-                  <stop offset="100%" stopColor="#0d7f8c" />
-                </linearGradient>
-              </defs>
+    <header className="sticky top-0 z-50 bg-deep/80 backdrop-blur-lg border-b border-edge">
+      <div className="max-w-7xl mx-auto px-10 h-18 flex items-center justify-between">
+        <div className="flex items-center space-x-10">
+          <Link href="/" className="flex items-center space-x-3 group">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="transition-all duration-300 drop-shadow-[0_0_8px_rgba(245,158,11,0.3)] group-hover:drop-shadow-[0_0_16px_rgba(245,158,11,0.5)]">
+              <rect width="28" height="28" rx="6" fill="#f59e0b" />
+              <path d="M8 14L12 10L16 14L20 10" stroke="#0d0d0c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M8 18L12 14L16 18L20 14" stroke="#0d0d0c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
             </svg>
-            <span className="text-xl font-bold text-midnight-ink tracking-[-0.5px]">
+            <span className="text-xl font-display font-bold text-cream tracking-[-0.5px]">
               Groove
             </span>
           </Link>
-          <nav className="hidden md:flex items-center space-x-6">
-            <Link href="/dashboard" className="nav-link">
+          <nav className="hidden md:flex items-center space-x-8">
+            <Link href="/dashboard" className="nav-link text-sm">
               Dashboard
             </Link>
-            <Link href="/chat" className="nav-link">
+            <Link href="/chat" className="nav-link text-sm">
               Chat
             </Link>
           </nav>
         </div>
-        <div className="flex items-center space-x-2">
-          <Link href="/chat" className="btn-primary text-sm py-2 px-4 hidden md:inline-flex">
+        <div className="flex items-center space-x-3">
+          <Link href="/chat" className="btn-primary text-sm py-2.5 px-5 hidden md:inline-flex">
             Query Your Data
           </Link>
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden w-10 h-10 flex items-center justify-center rounded-md text-midnight-ink hover:bg-cloud-gray/50 transition-colors"
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-md text-cream hover:bg-surface transition-colors"
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMenuOpen}
           >
@@ -69,22 +64,22 @@ export default function Header() {
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-deep/60 backdrop-blur-sm"
             onClick={() => setIsMenuOpen(false)}
           />
-          <div className="absolute top-16 inset-x-0 bg-canvas-white border-b border-cloud-border shadow-lg">
+          <div className="absolute top-16 inset-x-0 bg-surface border-b border-edge shadow-2xl">
             <nav className="flex flex-col py-4 px-6 space-y-1">
               <Link
                 href="/dashboard"
                 onClick={() => setIsMenuOpen(false)}
-                className="px-4 py-3 text-base font-medium text-midnight-ink rounded-md hover:bg-cloud-gray/50 transition-colors"
+                className="px-4 py-3 text-base font-medium text-cream rounded-md hover:bg-elevated transition-colors"
               >
                 Dashboard
               </Link>
               <Link
                 href="/chat"
                 onClick={() => setIsMenuOpen(false)}
-                className="px-4 py-3 text-base font-medium text-midnight-ink rounded-md hover:bg-cloud-gray/50 transition-colors"
+                className="px-4 py-3 text-base font-medium text-cream rounded-md hover:bg-elevated transition-colors"
               >
                 Chat
               </Link>

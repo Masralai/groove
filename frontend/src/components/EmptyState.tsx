@@ -22,14 +22,14 @@ export default function EmptyState({
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
         {icon || (
-          <div className="w-16 h-16 bg-plasma-teal-gradient/10 rounded-2xl flex items-center justify-center mb-6">
-            <svg className="w-8 h-8 text-plasma-teal-gradient" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 bg-amber/10 rounded-2xl flex items-center justify-center mb-6">
+            <svg className="w-8 h-8 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
         )}
-        <h2 className="text-2xl font-bold text-midnight-ink mb-2">{title}</h2>
-        <p className="text-base text-slate-text max-w-md">{description}</p>
+        <h2 className="text-2xl font-display font-bold text-cream mb-2">{title}</h2>
+        <p className="text-base text-muted max-w-md">{description}</p>
       </div>
     );
   }
@@ -38,7 +38,7 @@ export default function EmptyState({
     <div className="text-center py-16 px-6">
       {icon || (
         <svg
-          className="w-16 h-16 mx-auto text-cloud-gray mb-4"
+          className="w-16 h-16 mx-auto text-edge mb-4"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -52,8 +52,8 @@ export default function EmptyState({
           />
         </svg>
       )}
-      <h3 className="text-xl font-semibold text-midnight-ink mb-2">{title}</h3>
-      <p className="text-slate-text mb-6">{description}</p>
+      <h3 className="text-xl font-display font-bold text-cream mb-2">{title}</h3>
+      <p className="text-muted mb-6">{description}</p>
       {action && (
         <button onClick={action.onClick} className="btn-primary">
           {action.label}

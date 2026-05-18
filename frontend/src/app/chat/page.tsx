@@ -117,10 +117,10 @@ export default function ChatPage() {
     const isVisible = visibleSql === id;
 
     return (
-      <div className="mt-3 border border-cloud-border rounded-md overflow-hidden">
+      <div className="mt-3 border border-edge rounded-md overflow-hidden">
         <button
           onClick={() => setVisibleSql(isVisible ? null : id)}
-          className="w-full flex items-center justify-between px-3 py-2 bg-cloud-gray/50 text-xs font-medium text-slate-text hover:bg-cloud-gray/70 transition-colors"
+          className="w-full flex items-center justify-between px-3 py-2 bg-elevated/50 text-xs font-medium text-muted hover:bg-elevated/70 transition-colors"
           aria-expanded={isVisible}
           aria-controls={`sql-content-${id}`}
         >
@@ -135,11 +135,11 @@ export default function ChatPage() {
           </svg>
         </button>
         {isVisible && (
-          <div id={`sql-content-${id}`} className="p-3 bg-midnight-ink/5">
+          <div id={`sql-content-${id}`} className="p-3 bg-deep/50">
             <div className="flex items-center justify-between mb-2">
               <button
                 onClick={() => navigator.clipboard.writeText(sql)}
-                className="text-xs text-plasma-teal-gradient hover:underline flex items-center space-x-1"
+                className="text-xs text-amber hover:underline flex items-center space-x-1"
                 aria-label="Copy SQL to clipboard"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,7 +149,7 @@ export default function ChatPage() {
                 <span>Copy</span>
               </button>
             </div>
-            <pre className="text-xs font-mono text-midnight-ink overflow-x-auto whitespace-pre-wrap">
+            <pre className="text-xs font-mono text-cream overflow-x-auto whitespace-pre-wrap">
               <code>{sql}</code>
             </pre>
           </div>
@@ -161,9 +161,9 @@ export default function ChatPage() {
   return (
     <div className="flex h-[calc(100vh-4rem)]">
       {viewMode === "sidebar" && (
-        <aside className="hidden md:flex w-64 bg-canvas-white border-r border-cloud-border flex-col shrink-0">
-          <div className="p-6 border-b border-cloud-border">
-            <h2 className="text-sm font-semibold text-midnight-ink uppercase tracking-wider">
+        <aside className="hidden md:flex w-64 bg-deep border-r border-edge flex-col shrink-0">
+          <div className="p-6 border-b border-edge">
+            <h2 className="text-xs font-semibold text-muted uppercase tracking-[0.08em]">
               Recent Queries
             </h2>
           </div>
@@ -175,20 +175,20 @@ export default function ChatPage() {
                   setInputValue(query.text);
                   inputRef.current?.focus();
                 }}
-                className="w-full text-left p-3 bg-cloud-gray/50 rounded-md hover:bg-cloud-gray/80 transition-colors group"
+                className="w-full text-left p-3 bg-surface/50 rounded-md hover:bg-surface/80 transition-colors group"
                 aria-label={`Load query: ${query.text}`}
               >
-                <p className="text-sm font-medium text-midnight-ink line-clamp-2 group-hover:text-plasma-teal-gradient transition-colors">
+                <p className="text-sm font-medium text-cream line-clamp-2 group-hover:text-amber transition-colors">
                   {query.text}
                 </p>
-                <p className="text-xs text-slate-text mt-1">{query.time}</p>
+                <p className="text-xs text-dim mt-1">{query.time}</p>
               </button>
             ))}
           </div>
-          <div className="p-4 border-t border-cloud-border">
+          <div className="p-4 border-t border-edge">
             <button
               onClick={() => setViewMode("full")}
-              className="w-full text-sm text-slate-text hover:text-midnight-ink transition-colors flex items-center justify-center space-x-1"
+              className="w-full text-sm text-muted hover:text-cream transition-colors flex items-center justify-center space-x-1"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -199,10 +199,9 @@ export default function ChatPage() {
         </aside>
       )}
 
-      {/* Mobile bottom sheet trigger */}
       <button
         onClick={() => setShowMobileSidebar(true)}
-        className="fixed bottom-4 right-4 z-30 md:hidden w-12 h-12 bg-gradient-to-br from-[#19a05f] to-[#0d7f8c] text-white rounded-full shadow-lg flex items-center justify-center"
+        className="fixed bottom-4 right-4 z-30 md:hidden w-12 h-12 bg-gradient-to-br from-amber to-amber-deep text-deep rounded-full shadow-lg flex items-center justify-center shadow-amber/25"
         aria-label="Show recent queries"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,16 +209,15 @@ export default function ChatPage() {
         </svg>
       </button>
 
-      {/* Mobile bottom sheet */}
       {showMobileSidebar && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)} />
-          <div className="absolute bottom-0 inset-x-0 bg-canvas-white rounded-t-2xl shadow-xl max-h-[60vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-cloud-border">
-              <h2 className="text-sm font-semibold text-midnight-ink uppercase tracking-wider">Recent Queries</h2>
+          <div className="absolute inset-0 bg-deep/60 backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)} />
+          <div className="absolute bottom-0 inset-x-0 bg-surface rounded-t-2xl shadow-xl max-h-[60vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-edge">
+              <h2 className="text-xs font-semibold text-muted uppercase tracking-[0.08em]">Recent Queries</h2>
               <button
                 onClick={() => setShowMobileSidebar(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full text-slate-text hover:bg-cloud-gray/50 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-full text-dim hover:bg-surface/50 transition-colors"
                 aria-label="Close"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,7 +227,7 @@ export default function ChatPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {recentQueries.length === 0 ? (
-                <p className="text-sm text-slate-text text-center py-8">No recent queries yet.</p>
+                <p className="text-sm text-muted text-center py-8">No recent queries yet.</p>
               ) : (
                 recentQueries.map((query, index) => (
                   <button
@@ -239,10 +237,10 @@ export default function ChatPage() {
                       setShowMobileSidebar(false);
                       inputRef.current?.focus();
                     }}
-                    className="w-full text-left p-3 bg-cloud-gray/50 rounded-md hover:bg-cloud-gray/80 transition-colors"
+                    className="w-full text-left p-3 bg-surface/50 rounded-md hover:bg-surface/80 transition-colors"
                   >
-                    <p className="text-sm font-medium text-midnight-ink line-clamp-2">{query.text}</p>
-                    <p className="text-xs text-slate-text mt-1">{query.time}</p>
+                    <p className="text-sm font-medium text-cream line-clamp-2">{query.text}</p>
+                    <p className="text-xs text-dim mt-1">{query.time}</p>
                   </button>
                 ))
               )}
@@ -277,24 +275,24 @@ export default function ChatPage() {
                       message.isLoading
                         ? "animate-pulse"
                         : message.isError
-                        ? "border border-red-300"
+                        ? "border border-coral/40"
                         : ""
                     } ${
                       message.isUser
-                        ? "bg-gradient-to-br from-[#19a05f] to-[#0d7f8c] text-white rounded-2xl rounded-br-sm"
+                        ? "bg-gradient-to-br from-amber to-amber-deep text-deep rounded-2xl rounded-br-sm"
                         : message.isError
-                        ? "bg-red-50 text-red-800 rounded-2xl rounded-bl-sm"
-                        : "bg-cloud-gray text-midnight-ink rounded-2xl rounded-bl-sm"
+                        ? "bg-coral/10 text-coral rounded-2xl rounded-bl-sm"
+                        : "bg-surface text-cream rounded-2xl rounded-bl-sm border border-edge"
                     } px-5 py-3.5`}
                   >
                     {message.isLoading ? (
                       <div className="flex items-center space-x-3 py-1" aria-label="Loading response">
                         <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-slate-text rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                          <div className="w-2 h-2 bg-slate-text rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                          <div className="w-2 h-2 bg-slate-text rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                          <div className="w-2 h-2 bg-amber rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <div className="w-2 h-2 bg-amber rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <div className="w-2 h-2 bg-amber rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                         </div>
-                        <span className="text-sm text-slate-text">Analyzing your data...</span>
+                        <span className="text-sm text-muted">Analyzing your data...</span>
                       </div>
                     ) : (
                       <>
@@ -316,13 +314,13 @@ export default function ChatPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex items-center space-x-4 px-10 py-4 bg-canvas-white border-t border-cloud-border"
+          className="flex items-center space-x-4 px-10 py-4 bg-deep/80 backdrop-blur-lg border-t border-edge"
         >
           {viewMode === "sidebar" && (
             <button
               type="button"
               onClick={() => setViewMode("full")}
-              className="hidden md:flex items-center justify-center w-10 h-10 rounded-full border border-cloud-border text-slate-text hover:bg-cloud-gray/50 transition-colors"
+              className="hidden md:flex items-center justify-center w-10 h-10 rounded-full border border-edge text-muted hover:bg-surface/50 transition-colors"
               aria-label="Expand sidebar"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -349,7 +347,7 @@ export default function ChatPage() {
             />
             {isLoading && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <div className="w-5 h-5 border-2 border-cloud-border border-t-plasma-teal-gradient rounded-full animate-spin" role="status" aria-label="Loading" />
+                <div className="w-5 h-5 border-2 border-edge border-t-amber rounded-full animate-spin" role="status" aria-label="Loading" />
               </div>
             )}
           </div>

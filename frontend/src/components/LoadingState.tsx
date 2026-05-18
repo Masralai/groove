@@ -6,9 +6,9 @@ interface LoadingStateProps {
 export function CardSkeleton() {
   return (
     <div className="card animate-pulse" aria-hidden="true">
-      <div className="h-4 bg-cloud-gray rounded w-24 mb-4" />
-      <div className="h-8 bg-cloud-gray rounded w-32 mb-3" />
-      <div className="h-4 bg-cloud-gray rounded w-20" />
+      <div className="h-3 shimmer rounded w-20 mb-4" />
+      <div className="h-8 shimmer rounded w-28 mb-3" />
+      <div className="h-3 shimmer rounded w-16" />
     </div>
   );
 }
@@ -16,13 +16,13 @@ export function CardSkeleton() {
 export function TableSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="card overflow-hidden p-0 animate-pulse" aria-hidden="true">
-      <div className="px-6 py-4 bg-cloud-gray">
-        <div className="h-3 bg-cloud-border rounded w-full" />
+      <div className="px-6 py-4 bg-surface">
+        <div className="h-3 shimmer rounded w-full" />
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="px-6 py-4 border-t border-cloud-border">
-          <div className="h-4 bg-cloud-gray rounded w-3/4 mb-2" />
-          <div className="h-3 bg-cloud-gray rounded w-1/2" />
+        <div key={i} className="px-6 py-4 border-t border-edge">
+          <div className="h-4 shimmer rounded w-3/4 mb-2" />
+          <div className="h-3 shimmer rounded w-1/2" />
         </div>
       ))}
     </div>

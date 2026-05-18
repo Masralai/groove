@@ -3,6 +3,7 @@
 Production-ready service integrating with the Meta Marketing API to fetch ads data into PostgreSQL + MongoDB, with a natural language chatbot powered by Gemini.
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Data Model](#data-model)
@@ -24,6 +25,7 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 Build a production-ready service that integrates with the Meta Marketing API, fetches ads data into a persistent datastore, and provides a natural language chatbot interface for querying the data.
 
 The system consists of two main parts:
+
 1. **Meta Marketing API Data Pipeline**: Fetches campaigns, ad sets, ads, and daily insights from Meta Marketing API, stores raw responses in MongoDB, and transforms/upserts normalized data into PostgreSQL
 2. **Natural Language Chatbot**: Allows users to query ads data in plain English using Gemini LLM for text-to-SQL generation
 
@@ -35,7 +37,7 @@ The system consists of two main parts:
 │  :3000     │───▶│         :8000               │───▶│  :5432       │
 │            │    │                             │    │              │
 │  Dashboard │    │  Fetch Router  Chat Router  │    │  analytics   │
-│  Chat Page │    │  DataSyncSvc   LLM Service    │    │  (4 tables)  │
+│  Chat Page │    │  DataSyncSvc   LLM Service  │    │  (4 tables)  │
 └────────────┘    │  MetaAPISvc    SQL Validator│    └──────────────┘
                   │  Config (YAML)              │
                   │  APScheduler                │    ┌──────────────┐
@@ -46,6 +48,7 @@ The system consists of two main parts:
 ```
 
 ### Services
+
 - **MetaAPI Service**: REST calls to Graph API via `facebook_business` SDK, pagination, rate-limit backoff
 - **Data Sync Service**: Orchestrates fetch → MongoDB → transform → PostgreSQL upsert
 - **Transform Pipeline**: Raw JSON → typed records with field mapping
@@ -55,6 +58,7 @@ The system consists of two main parts:
 ## Data Model
 
 ### PostgreSQL (Analytics)
+
 ```sql
 campaigns (id TEXT PK, name, status, objective, daily_budget, lifetime_budget, created_time, start_time, stop_time, created_at, updated_at)
 ad_sets   (id TEXT PK, campaign_id FK, name, status, daily_budget, lifetime_budget, targeting JSONB, bid_strategy, created_time, created_at, updated_at)
@@ -63,6 +67,7 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 ```
 
 ### MongoDB (Raw Staging)
+
 - `campaigns_raw`: One document per API response object
 - `ad_sets_raw`: One document per API response object
 - `ads_raw`: One document per API response object
@@ -97,6 +102,7 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 ## Setup and Installation
 
 ### Prerequisites
+
 - Docker and Docker Compose
 - Python 3.12+ (for local development)
 - Meta Marketing API access token
@@ -105,17 +111,20 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 ### Installation Steps
 
 1. Clone the repository:
+
    ```bash
    git clone <repository-url>
    cd groove
    ```
 
 2. Create environment file from template:
+
    ```bash
    cp .env.example .env
    ```
 
 3. Edit `.env` to add your credentials:
+
    ```env
    META_ACCESS_TOKEN=<your-meta-access-token>
    META_AD_ACCOUNT_ID=act_<your-account-id>
@@ -125,6 +134,7 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
    ```
 
 4. Build and start the services:
+
    ```bash
    docker compose up --build
    ```
@@ -142,12 +152,14 @@ The following environment variables are required:
 | `MONGODB_URI` | MongoDB connection string | `mongodb://mongodb:27017/groove` |
 
 Optional variables with defaults in code:
+
 - `SECRET_KEY`: For session security (default: "dev-secret-key-change-in-production")
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: Token expiration time (default: 8 days)
 
 ## Running the Application
 
 ### Using Docker Compose (Recommended)
+
 ```bash
 # Start all services
 docker compose up --build
@@ -170,9 +182,11 @@ curl -X POST http://localhost:8000/api/chat \
 ### Local Development
 
 > **Prerequisite**: Postgres (port 5432) and MongoDB (port 27017) must be running before starting the backend. The easiest way is via Docker:
+>
 > ```bash
 > docker compose up -d postgres mongodb
 > ```
+>
 > This starts both databases as daemons. They stay up until you run `docker compose down`.
 
 ```bash
@@ -194,6 +208,7 @@ npm run dev
 ```
 
 The frontend dev server proxies `/api/*` calls to the backend via Next.js rewrites. Verify the full chain:
+
 ```bash
 curl http://localhost:3000/api/health
 ```
@@ -201,6 +216,7 @@ curl http://localhost:3000/api/health
 ## Testing
 
 Run the test suite:
+
 ```bash
 # Using Docker (recommended for consistency)
 docker compose exec backend pytest
@@ -211,6 +227,7 @@ pytest
 ```
 
 Test suite includes:
+
 - Unit tests for configuration loading
 - Unit tests for Meta API service (with mocked HTTP)
 - Integration tests for MongoDB persistence
@@ -252,6 +269,7 @@ The LLM uses a structured 3-part system prompt for reliable SQL generation:
 **Current approach**: Schema-only injection (DDL), aggregate queries, pre-computed materials. Full DDL for 4 tables fits well within Gemini context windows.
 
 **Millions-of-rows strategy**:
+
 - Keyword-based table selection (only inject relevant DDL based on query terms)
 - LLM generates aggregate queries first, then drill-down
 - Pre-computed daily/weekly materialized views

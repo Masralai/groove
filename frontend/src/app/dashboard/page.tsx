@@ -110,14 +110,14 @@ export default function DashboardPage() {
     <div className="max-w-7xl mx-auto px-10 py-10 space-y-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-midnight-ink tracking-[-1px] leading-[1.1]">
+          <h1 className="text-4xl font-display font-bold text-cream tracking-[-0.02em] leading-[1.1]">
             Dashboard
           </h1>
-          <p className="mt-2 text-base text-slate-text">
+          <p className="mt-2 text-base text-muted">
             Overview of your Meta Ads campaign performance
           </p>
         </div>
-        <Link href="/chat" className="btn-primary text-sm py-2 px-4">
+        <Link href="/chat" className="btn-primary text-sm py-2 px-5">
           Query Data
         </Link>
       </div>
@@ -126,20 +126,19 @@ export default function DashboardPage() {
         <LoadingState />
       ) : error ? (
         <div className="text-center py-12">
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-coral mb-4">{error}</p>
           <button onClick={fetchDashboardData} className="btn-secondary text-sm py-2 px-4">
             Retry
           </button>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <KPICard
               title={`Total Spend (${datePrefix})`}
               value={formatCurrency(kpis.totalSpend)}
               change={spendChange.change}
               trend={spendChange.trend}
-              iconColor="text-plasma-teal-gradient"
               icon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.1 0-2 .9-2 2s1 2 2 2 2-.9 2-2-1-2-2-2zm0 2a.5.5 0 01.5-.5h1a.5.5 0 010 1h-1a.5.5 0 01-.5-.5zm0 4a.5.5 0 01.5-.5h1a.5.5 0 010 1h-1a.5.5 0 01-.5-.5zm0 4a.5.5 0 01.5-.5h1a.5.5 0 010 1h-1a.5.5 0 01-.5-.5z" />
@@ -151,7 +150,6 @@ export default function DashboardPage() {
               value={formatCompact(kpis.impressions)}
               change={impChange.change}
               trend={impChange.trend}
-              iconColor="text-system-sky"
               icon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -164,7 +162,6 @@ export default function DashboardPage() {
               value={formatCompact(kpis.clicks)}
               change={clickChange.change}
               trend={clickChange.trend}
-              iconColor="text-midnight-ink"
               icon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
@@ -176,7 +173,6 @@ export default function DashboardPage() {
               value={`${kpis.ctr.toFixed(2)}%`}
               change={ctrChange.change}
               trend={ctrChange.trend}
-              iconColor="text-system-mint"
               icon={
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -187,7 +183,7 @@ export default function DashboardPage() {
 
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-midnight-ink tracking-[-0.5px]">
+              <h2 className="text-2xl font-display font-bold text-cream tracking-[-0.01em]">
                 Campaigns
               </h2>
               <div className="flex items-center space-x-3">
@@ -224,58 +220,58 @@ export default function DashboardPage() {
             ) : (
               <div className="card overflow-hidden p-0">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-cloud-border" role="table">
+                  <table className="min-w-full divide-y divide-edge" role="table">
                     <thead>
-                      <tr className="bg-cloud-gray">
-                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                      <tr className="bg-surface">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-muted uppercase tracking-wider">
                           Campaign Name
                         </th>
-                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-muted uppercase tracking-wider">
                           Status
                         </th>
-                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-muted uppercase tracking-wider">
                           Objective
                         </th>
-                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-muted uppercase tracking-wider">
                           Daily Budget
                         </th>
-                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-muted uppercase tracking-wider">
                           Lifetime Budget
                         </th>
-                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-muted uppercase tracking-wider">
                           Created
                         </th>
-                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-slate-text uppercase tracking-wider">
+                        <th scope="col" className="px-8 py-5 text-left text-xs font-medium text-muted uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-cloud-border">
+                    <tbody className="divide-y divide-edge">
                       {campaigns.map((campaign) => (
-                        <tr key={campaign.id} className="hover:bg-cloud-gray/30 transition-colors duration-150">
+                        <tr key={campaign.id} className="hover:bg-surface/60 transition-colors duration-150">
                           <td className="px-8 py-5 whitespace-nowrap">
-                            <span className="text-sm font-medium text-midnight-ink">{campaign.name}</span>
+                            <span className="text-sm font-medium text-cream">{campaign.name}</span>
                           </td>
                           <td className="px-8 py-5 whitespace-nowrap">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(campaign.status)}`}>
                               {campaign.status.charAt(0) + campaign.status.slice(1).toLowerCase()}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-text">{campaign.objective}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-text tabular-nums">
-                            {campaign.daily_budget != null ? `$${Number(campaign.daily_budget).toFixed(2)}` : "—"}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted">{campaign.objective}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted font-mono">
+                            {campaign.daily_budget != null ? `$${Number(campaign.daily_budget).toFixed(2)}` : "\u2014"}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-text tabular-nums">
-                            {campaign.lifetime_budget != null ? `$${Number(campaign.lifetime_budget).toFixed(2)}` : "—"}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted font-mono">
+                            {campaign.lifetime_budget != null ? `$${Number(campaign.lifetime_budget).toFixed(2)}` : "\u2014"}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-text">
-                            {campaign.created_time ? new Date(campaign.created_time).toLocaleDateString() : "—"}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted">
+                            {campaign.created_time ? new Date(campaign.created_time).toLocaleDateString() : "\u2014"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <button className="text-plasma-teal-gradient hover:underline mr-3" aria-label={`View ${campaign.name}`}>
+                            <button className="text-amber hover:underline mr-3" aria-label={`View ${campaign.name}`}>
                               View
                             </button>
-                            <button className="text-midnight-ink hover:underline" aria-label={`Edit ${campaign.name}`}>
+                            <button className="text-muted hover:text-cream transition-colors" aria-label={`Edit ${campaign.name}`}>
                               Edit
                             </button>
                           </td>
@@ -284,9 +280,9 @@ export default function DashboardPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between px-8 py-4 border-t border-cloud-border bg-cloud-gray/30">
-                  <p className="text-sm text-slate-text">
-                    Showing <span className="font-medium text-midnight-ink">{campaigns.length}</span> campaign{campaigns.length !== 1 ? "s" : ""}
+                <div className="flex items-center justify-between px-8 py-4 border-t border-edge bg-surface/40">
+                  <p className="text-sm text-muted">
+                    Showing <span className="font-medium text-cream">{campaigns.length}</span> campaign{campaigns.length !== 1 ? "s" : ""}
                   </p>
                   <div className="flex items-center space-x-2">
                     <button

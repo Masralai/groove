@@ -72,18 +72,18 @@ describe("trendChange", () => {
 
 describe("statusBadgeClass", () => {
   it("returns active class for ACTIVE", () => {
-    expect(statusBadgeClass("ACTIVE")).toBe("badge-status-active");
+    expect(statusBadgeClass("ACTIVE")).toBe("badge-active");
   });
 
   it("returns paused class for PAUSED", () => {
-    expect(statusBadgeClass("PAUSED")).toBe("badge-status-paused");
+    expect(statusBadgeClass("PAUSED")).toBe("badge-paused");
   });
 
   it("returns completed class for COMPLETED", () => {
-    expect(statusBadgeClass("COMPLETED")).toBe("badge-status-completed");
+    expect(statusBadgeClass("COMPLETED")).toBe("badge-completed");
   });
 
   it("defaults to paused for unknown status", () => {
-    expect(statusBadgeClass("UNKNOWN")).toBe("badge-status-paused");
+    expect(statusBadgeClass("UNKNOWN")).toBe("badge-paused");
   });
 });
