@@ -4,7 +4,7 @@ sqlalchemy[asyncio]
 asyncpg
 motor
 facebook-business
-google-generativeai
+google-genai>=1.0.0
 pydantic-settings
 pyyaml
 alembic

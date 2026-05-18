@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.models.mongo import (
     campaigns_raw, 
     ad_sets_raw, 
@@ -64,6 +64,32 @@ class MongoRepository:
         result = await insights_raw.insert_many(insights)
         logger.info(f"Inserted {len(result.inserted_ids)} insights into MongoDB")
         return len(result.inserted_ids)
+
+    async def get_sync_status(self) -> Dict[str, Any]:
+        """Get sync status with record counts and last sync time per collection."""
+        collections = {
+            "campaigns": campaigns_raw,
+            "ad_sets": ad_sets_raw,
+            "ads": ads_raw,
+            "insights": insights_raw,
+        }
+        records_synced = {}
+        last_sync: Optional[datetime] = None
+
+        for name, col in collections.items():
+            count = await col.count_documents({})
+            latest = await col.find_one({}, sort=[("_stored_at", -1)])
+            records_synced[name] = count
+            if latest and "_stored_at" in latest:
+                stored = latest["_stored_at"]
+                if last_sync is None or stored > last_sync:
+                    last_sync = stored
+
+        return {
+            "last_sync": last_sync.isoformat() if last_sync else None,
+            "records_synced": records_synced,
+            "status": "idle",
+        }
 
 # Global instance
 mongo_repository = MongoRepository()

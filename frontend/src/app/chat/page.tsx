@@ -18,6 +18,7 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState("");
   const [visibleSql, setVisibleSql] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("sidebar");
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -206,6 +207,58 @@ export default function ChatPage() {
             </button>
           </div>
         </aside>
+      )}
+
+      {/* Mobile bottom sheet trigger */}
+      <button
+        onClick={() => setShowMobileSidebar(true)}
+        className="fixed bottom-4 right-4 z-30 md:hidden w-12 h-12 bg-gradient-to-br from-[#19a05f] to-[#0d7f8c] text-white rounded-full shadow-lg flex items-center justify-center"
+        aria-label="Show recent queries"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Mobile bottom sheet */}
+      {showMobileSidebar && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowMobileSidebar(false)} />
+          <div className="absolute bottom-0 inset-x-0 bg-canvas-white rounded-t-2xl shadow-xl max-h-[60vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-cloud-border">
+              <h2 className="text-sm font-semibold text-midnight-ink uppercase tracking-wider">Recent Queries</h2>
+              <button
+                onClick={() => setShowMobileSidebar(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-slate-text hover:bg-cloud-gray/50 transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {recentQueries.length === 0 ? (
+                <p className="text-sm text-slate-text text-center py-8">No recent queries yet.</p>
+              ) : (
+                recentQueries.map((query, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setInputValue(query.text);
+                      setShowMobileSidebar(false);
+                      inputRef.current?.focus();
+                    }}
+                    className="w-full text-left p-3 bg-cloud-gray/50 rounded-md hover:bg-cloud-gray/80 transition-colors"
+                  >
+                    <p className="text-sm font-medium text-midnight-ink line-clamp-2">{query.text}</p>
+                    <p className="text-xs text-slate-text mt-1">{query.time}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="flex-1 flex flex-col min-w-0">

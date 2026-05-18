@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 from typing import Dict, Any, Optional, List
 import logging
 import re
@@ -10,9 +10,8 @@ class LLMAgentService:
     """Service for Gemini LLM integration for text-to-SQL generation and result summarization."""
     
     def __init__(self):
-        # Configure Gemini API
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.model_name = settings.GEMINI_MODEL_NAME
         
     def _get_schema_ddl(self) -> str:
         """Get the DDL for all tables to inject into the system prompt."""
@@ -157,7 +156,10 @@ SQL: SELECT i.date, SUM(i.conversions) AS daily_conversions
             full_prompt = f"{system_prompt}\n\nUser Question: {user_query}\n\nSQL Query:"
             
             # Generate content
-            response = self.model.generate_content(full_prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt,
+            )
             generated_text = response.text.strip()
             
             # Extract SQL from response (handle potential markdown formatting)
@@ -240,7 +242,10 @@ Generated SQL: {sql}
 
 Provide a brief summary (1-2 sentences) of what the data shows in response to the user's question."""
             
-            response = self.model.generate_content(full_prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=full_prompt,
+            )
             summary = response.text.strip()
             
             return {

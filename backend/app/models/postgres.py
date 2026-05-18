@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Text, Numeric, Integer, DateTime, Date, Boolean, JSON, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, Text, Numeric, Integer, DateTime, Date, Boolean, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.core.database import Base
 import uuid
 from datetime import datetime
@@ -28,7 +28,7 @@ class AdSet(Base):
     status = Column(Text)
     daily_budget = Column(Numeric)
     lifetime_budget = Column(Numeric)
-    targeting = Column(JSON)  # JSONB in PostgreSQL
+    targeting = Column(JSONB)
     bid_strategy = Column(Text)
     created_time = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -41,7 +41,7 @@ class Ad(Base):
     ad_set_id = Column(Text, nullable=False)  # Foreign key to ad_sets.id
     name = Column(Text)
     status = Column(Text)
-    creative = Column(JSON)  # JSONB in PostgreSQL
+    creative = Column(JSONB)
     created_time = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -44,6 +44,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'liga' 1, 'calt' 1;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .btn-primary {
@@ -262,5 +263,20 @@ body {
   .animate-bounce,
   .animate-spin {
     animation: none !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-midnight-ink: var(--color-dark-midnight-ink);
+    --color-canvas-white: var(--color-dark-canvas-white);
+    --color-cloud-gray: var(--color-dark-cloud-gray);
+    --color-slate-text: var(--color-dark-slate-text);
+    --color-ash-gray: var(--color-dark-ash-gray);
+    --color-cloud-border: var(--color-dark-cloud-border);
+    --color-system-mint: var(--color-dark-system-mint);
+    --color-system-sky: var(--color-dark-system-sky);
+    --color-plasma-teal-gradient: var(--color-dark-plasma-teal-gradient);
+    --shadow-lg: rgba(0, 0, 0, 0.4) 0px 4px 20px 0px;
   }
 }

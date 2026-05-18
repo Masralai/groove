@@ -1,8 +1,31 @@
-from typing import Dict, Any, List
-from datetime import datetime
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timezone
+import json
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+def _parse_datetime(val: Any) -> Optional[datetime]:
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val
+    if not isinstance(val, str):
+        return None
+    cleaned = val.strip()
+    cleaned = re.sub(r'(\+\d{2}):(\d{2})$', r'\1\2', cleaned)
+    cleaned = re.sub(r'\+00:?00$', 'Z', cleaned)
+    if cleaned.endswith('Z'):
+        cleaned = cleaned[:-1] + '+0000'
+    for fmt in ['%Y-%m-%dT%H:%M:%S%z', '%Y-%m-%dT%H:%M:%S.%f%z']:
+        try:
+            dt = datetime.strptime(cleaned, fmt)
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        except (ValueError, OverflowError):
+            continue
+    logger.warning(f"Could not parse datetime: {val}")
+    return None
 
 def transform_campaign(raw_campaign: Dict[str, Any]) -> Dict[str, Any]:
     """Transform raw campaign data to normalized record."""
@@ -13,38 +36,66 @@ def transform_campaign(raw_campaign: Dict[str, Any]) -> Dict[str, Any]:
         'objective': raw_campaign.get('objective'),
         'daily_budget': raw_campaign.get('daily_budget'),
         'lifetime_budget': raw_campaign.get('lifetime_budget'),
-        'created_time': raw_campaign.get('created_time'),
-        'start_time': raw_campaign.get('start_time'),
-        'stop_time': raw_campaign.get('stop_time'),
+        'created_time': _parse_datetime(raw_campaign.get('created_time')),
+        'start_time': _parse_datetime(raw_campaign.get('start_time')),
+        'stop_time': _parse_datetime(raw_campaign.get('stop_time')),
         'updated_at': datetime.utcnow()
+    }
+
+def _serialize(val: Any) -> Any:
+    if val is None:
+        return None
+    if isinstance(val, (str, int, float, bool)):
+        return val
+    if isinstance(val, datetime):
+        return val.isoformat()
+    if hasattr(val, 'export_all_data'):
+        return _serialize(val.export_all_data())
+    if isinstance(val, dict):
+        return {k: _serialize(v) for k, v in val.items()}
+    if isinstance(val, (list, tuple)):
+        return [_serialize(v) for v in val]
+    if hasattr(val, '__dict__'):
+        return _serialize(val.__dict__)
+    try:
+        return str(val)
+    except Exception:
+        return None
+
+_JSON_DUMP_FIELDS = {'targeting', 'creative'}
+
+def _prepare_record(record: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        k: json.dumps(v) if k in _JSON_DUMP_FIELDS and not isinstance(v, str) else v
+        for k, v in record.items()
     }
 
 def transform_ad_set(raw_ad_set: Dict[str, Any]) -> Dict[str, Any]:
     """Transform raw ad set data to normalized record."""
-    return {
+    return _prepare_record({
         'id': raw_ad_set.get('id'),
         'campaign_id': raw_ad_set.get('campaign_id'),
         'name': raw_ad_set.get('name'),
         'status': raw_ad_set.get('status'),
         'daily_budget': raw_ad_set.get('daily_budget'),
         'lifetime_budget': raw_ad_set.get('lifetime_budget'),
-        'targeting': raw_ad_set.get('targeting'),
+        'targeting': _serialize(raw_ad_set.get('targeting')),
         'bid_strategy': raw_ad_set.get('bid_strategy'),
-        'created_time': raw_ad_set.get('created_time'),
+        'created_time': _parse_datetime(raw_ad_set.get('created_time')),
         'updated_at': datetime.utcnow()
-    }
+    })
 
 def transform_ad(raw_ad: Dict[str, Any]) -> Dict[str, Any]:
     """Transform raw ad data to normalized record."""
-    return {
+    return _prepare_record({
         'id': raw_ad.get('id'),
-        'ad_set_id': raw_ad.get('ad_set_id'),
+        'ad_set_id': raw_ad.get('adset_id') or raw_ad.get('ad_set_id'),
         'name': raw_ad.get('name'),
         'status': raw_ad.get('status'),
-        'creative': raw_ad.get('creative'),
-        'created_time': raw_ad.get('created_time'),
+        'creative': _serialize(raw_ad.get('creative')),
+        'created_time': _parse_datetime(raw_ad.get('created_time')),
         'updated_at': datetime.utcnow()
-    }
+    })
 
 def transform_insight(raw_insight: Dict[str, Any]) -> Dict[str, Any]:
     """Transform raw insight data to normalized record."""

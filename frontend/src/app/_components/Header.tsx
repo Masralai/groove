@@ -1,6 +1,21 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isMenuOpen]);
+
   return (
     <header className="sticky top-0 z-50 bg-canvas-white border-b border-cloud-border">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -30,12 +45,63 @@ export default function Header() {
             </Link>
           </nav>
         </div>
-        <div className="flex items-center space-x-4">
-          <Link href="/chat" className="btn-primary text-sm py-2 px-4">
+        <div className="flex items-center space-x-2">
+          <ThemeToggle />
+          <Link href="/chat" className="btn-primary text-sm py-2 px-4 hidden md:inline-flex">
             Query Your Data
           </Link>
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-md text-midnight-ink hover:bg-cloud-gray/50 transition-colors"
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMenuOpen}
+          >
+            {isMenuOpen ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
+
+      {isMenuOpen && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setIsMenuOpen(false)}
+          />
+          <div className="absolute top-16 inset-x-0 bg-canvas-white border-b border-cloud-border shadow-lg">
+            <nav className="flex flex-col py-4 px-6 space-y-1">
+              <Link
+                href="/dashboard"
+                onClick={() => setIsMenuOpen(false)}
+                className="px-4 py-3 text-base font-medium text-midnight-ink rounded-md hover:bg-cloud-gray/50 transition-colors"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/chat"
+                onClick={() => setIsMenuOpen(false)}
+                className="px-4 py-3 text-base font-medium text-midnight-ink rounded-md hover:bg-cloud-gray/50 transition-colors"
+              >
+                Chat
+              </Link>
+              <Link
+                href="/chat"
+                onClick={() => setIsMenuOpen(false)}
+                className="btn-primary text-sm py-3 px-4 mt-2"
+              >
+                Query Your Data
+              </Link>
+            </nav>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

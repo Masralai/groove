@@ -10,6 +10,13 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+META_DEFAULT_FIELDS = {
+    'campaigns': ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'start_time', 'stop_time'],
+    'ad_sets': ['id', 'name', 'campaign_id', 'status', 'daily_budget', 'lifetime_budget', 'targeting', 'bid_strategy', 'created_time'],
+    'ads': ['id', 'name', 'adset_id', 'status', 'creative', 'created_time'],
+    'insights': ['impressions', 'clicks', 'spend', 'reach', 'frequency', 'ctr', 'cpc', 'cpm', 'conversions', 'date_start'],
+}
+
 class MetaAPIService:
     """Service for interacting with Meta Marketing API using facebook-business SDK."""
     
@@ -17,12 +24,16 @@ class MetaAPIService:
         self.api_initialized = False
         self.ad_account = None
         
+    def _meta_config(self, key: str, default: str | list[str] | dict | None = None):
+        return settings.meta_ads.get(key, default) if isinstance(settings.meta_ads, dict) else default
+
     async def initialize(self):
         """Initialize the Facebook Ads API."""
         if not self.api_initialized:
+            api_version = self._meta_config('api_version', 'v22.0')
             FacebookAdsApi.init(
                 access_token=settings.META_ACCESS_TOKEN,
-                api_version=settings.meta_ads['api_version'] if hasattr(settings, 'meta_ads') else 'v22.0'
+                api_version=api_version
             )
             self.ad_account = AdAccount(settings.META_AD_ACCOUNT_ID)
             self.api_initialized = True
@@ -40,19 +51,17 @@ class MetaAPIService:
         await self.initialize()
         
         if fields is None:
-            fields = settings.meta_ads['fields']['campaigns']
+            fields = self._meta_config('fields', {}).get('campaigns', META_DEFAULT_FIELDS['campaigns'])
             
         params = {
-            'fields': ','.join(fields),
-            'limit': 100  # Page size
+            'limit': 100
         }
-        
+
         attempt = 0
         max_retries = 5
-        
+
         while attempt <= max_retries:
             try:
-                # Using the Facebook Ads API cursor-based pagination
                 campaigns = self.ad_account.get_campaigns(
                     fields=fields,
                     params=params
@@ -88,16 +97,15 @@ class MetaAPIService:
         await self.initialize()
         
         if fields is None:
-            fields = settings.meta_ads['fields']['ad_sets']
+            fields = self._meta_config('fields', {}).get('ad_sets', META_DEFAULT_FIELDS['ad_sets'])
             
         params = {
-            'fields': ','.join(fields),
             'limit': 100
         }
-        
+
         attempt = 0
         max_retries = 5
-        
+
         while attempt <= max_retries:
             try:
                 ad_sets = self.ad_account.get_ad_sets(
@@ -130,16 +138,15 @@ class MetaAPIService:
         await self.initialize()
         
         if fields is None:
-            fields = settings.meta_ads['fields']['ads']
+            fields = self._meta_config('fields', {}).get('ads', META_DEFAULT_FIELDS['ads'])
             
         params = {
-            'fields': ','.join(fields),
             'limit': 100
         }
-        
+
         attempt = 0
         max_retries = 5
-        
+
         while attempt <= max_retries:
             try:
                 ads = self.ad_account.get_ads(
@@ -177,16 +184,15 @@ class MetaAPIService:
         await self.initialize()
         
         if fields is None:
-            fields = settings.meta_ads['fields']['insights']
+            fields = self._meta_config('fields', {}).get('insights', META_DEFAULT_FIELDS['insights'])
             
         params = {
-            'fields': ','.join(fields),
             'limit': 100,
             'level': level
         }
         
         if time_range:
-            params['time_range'] = str(time_range).replace("'", '"')
+            params['time_range'] = time_range
         
         attempt = 0
         max_retries = 5

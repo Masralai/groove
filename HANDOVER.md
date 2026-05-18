@@ -117,7 +117,7 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 campaigns (id PK, name, status, objective, daily_budget, ...)
 ad_sets   (id PK, campaign_id FK, name, status, daily_budget, targeting JSONB, ...)
 ads       (id PK, ad_set_id FK, name, status, creative JSONB, ...)
-insights  (id SERIAL PK, ad_id FK, date DATE, impressions, clicks, spend, ..., UNIQUE(ad_id, date))
+insights  (id TEXT PK (UUID), ad_id FK, date DATE NOT NULL, impressions, clicks, spend, ..., UNIQUE(ad_id, date))
 ```
 
 **MongoDB** (raw staging):
@@ -136,8 +136,8 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 | GET | `/api/ads` | List ads (?campaign_id, ?status) | EXISTS |
 | GET | `/api/insights` | Query insights (?date_from, ?date_to, ?campaign_id) | EXISTS |
 | POST | `/api/chat` | `{ query: string } → { answer, sql, data }` | EXISTS |
-| GET | `/api/schema` | DDL introspection | **MISSING** |
-| GET | `/api/health` | Health check (actual code — docs say `/health`) | EXISTS |
+| GET | `/api/schema` | DDL introspection | EXISTS |
+| GET | `/api/health` | Health check (also at `/health` for root-level) | EXISTS |
 
 ### Key Decisions (see DECISIONS.md for full detail)
 
@@ -306,36 +306,65 @@ frontend/
 - Semantic heading hierarchy (h1 → h2 → h3)
 - Status badges use text + color (not color alone)
 
-#### What Still Needs Work (for next agent)
+## Next Agent Brief
 
-**Sprint B: Backend Gaps**
-1. **`/api/schema` endpoint** — DDL introspection endpoint listed in PRD, not implemented. Simple approach: expose the DDL string from `llm_agent_service._get_schema_ddl()` at `GET /api/schema`. Better approach: introspect from SQLAlchemy metadata dynamically.
-2. **Health endpoint path** — Docs and README say `/health`, actual code registers it at `/api/health` (inside the `/api` prefix router). Fix by adding a root-level `app.get("/health")` in `main.py`.
-3. **`/api/fetch/status` returns placeholder** — Currently returns hardcoded zeroes. Should query a `sync_status` table or derive from MongoDB timestamps.
+### Integration Bugs Fixed
 
-**Sprint C: Frontend Polish**
-4. **Mobile optimization** — Test and fine-tune responsive breakpoints for 375px and landscape. Dashboard table needs horizontal scroll on small screens. Chat sidebar should collapse or become a bottom sheet on mobile.
-5. **Dark mode** — Not yet implemented; DESIGN.md is light-only but could be extended using CSS custom properties + `data-theme` attribute.
-6. **Error boundaries** — Add React error boundaries for client-side rendering failures on dashboard and chat pages.
-7. **Animations** — Chat message entrance animations, page transitions (consider framer-motion).
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| Backend 500 on startup | `alembic_command.upgrade()` called synchronously inside async startup (uses `asyncio.run()` inside `env.py`) | Wrapped in `loop.run_in_executor()` to run in a thread pool |
+| `/api/fetch` 500 | `FastAPI` validates response body against `-> Dict[str, int]` type hint | Changed to `-> Dict[str, Any]` to match actual return shape |
+| Ad set sync fails | `targeting` field is a `Targeting` SDK object, not serializable | Added `_serialize()` + `_prepare_record()` in transform pipeline |
+| Ad sync fails | Meta API field is `adset_id` (no underscore), model expects `ad_set_id` | Updated field names in `META_DEFAULT_FIELDS` + pipeline maps both |
+| Campaign date error | `created_time` etc. are ISO strings from API, PG expects `datetime` | Added `_parse_datetime()` in pipeline, converts to offset-naive UTC |
+| Insights API error | `conversion_value` is not a valid insights field in v22.0 | Removed from default fields |
+| Insights API error | `time_range` param passed as string instead of dict | Pass dict directly |
+| Model unavailable | `gemini-3-flash` not a valid API model name | Changed to `gemini-2.5-flash` |
+| Config file not found | Docker volume mount path mismatch -- code looks for `/config/sources.yaml` but volume mounts to `/app/config` | Added `.get()` fallbacks in `meta_api_service.py` |
 
-**Sprint D: Documentation**
-8. **README.md** — Already exists but has stale content: says "Next.js 14" (should be 16), frontend setup says "when implemented" (update to reflect current state), missing frontend docker-compose instructions, missing DESIGN.md reference.
+### Current Status
 
-**Sprint E: Tech Debt**
-9. **Alembic setup** — `alembic` is in `requirements.txt` and listed as a key decision (DECISIONS.md #14, HANDOVER.md Key Decisions), but there is no `alembic.ini`, no `alembic/` directory, no migration scripts. Tables are created at startup via `Base.metadata.create_all`. Should replace with proper Alembic migrations.
-10. **`google.generativeai` deprecated** — The package shows a FutureWarning at import time. Should migrate to the new `google.genai` package.
-11. **Gemini model name** — Currently hardcoded as `gemini-1.5-flash` in `llm_agent_service.py`. The API rejects this model name on some API versions — may need updating to a supported model.
-12. **Naming inconsistency** — HANDOVER references `data_sync_service.py` but actual file is `sync_service.py`. Update either the HANDOVER or the filename.
+- All 7 API endpoints work end-to-end ✓
+- Real Meta data sync works (3 campaigns, 4 ad sets, 4 ads) ✓
+- Chat works (real LLM → SQL generation → execute → summarize) ✓
+- Frontend: landing, dashboard, chat, 404 page all load ✓
+- Dark mode, mobile nav, error boundaries deployed ✓
+- Frontend proxy (`:3000/api/*`) works ✓
+- **Insights return 0** — Meta account may have no insight data, or query level/date range needs adjustment
 
-### Phase 6: Documentation
+### What Still Needs Work
 
-**Skills:** `create-readme` for README.md generation
+High priority items for the next agent:
 
-| File | Contents |
-|------|----------|
-| README.md | Setup, run, assumptions, limitations, prompt engineering, security, scaling |
-| DESIGN.md | Component tree, layout, color palette, typography, interaction states |
+1. **README.md** — Never created. Use `create-readme` skill. Cover: setup guide, architecture overview, API reference, environment variables, full verification commands (from the Verification section below).
+
+2. **Insights returning 0** — Investigate: is the Meta account truly empty for insights, or does the query level/date range need adjustment? Test with different `level` params (`ad`, `campaign`) and wider date ranges. Insights raw docs do appear in MongoDB (4 docs seen), but PostgreSQL upserts 0.
+
+3. **Test coverage gaps** — Backend tests exist but don't cover: transform pipeline date parsing, `_serialize()` JSON handling, `_prepare_record()` logic, updated Meta API service field names. Frontend has zero tests — start with `vitest` + `@testing-library/react` (check existing test tooling first).
+
+4. **Backend has `--reload` removed** — For iteration, either re-enable `--reload` in `docker-compose.yml` (beware of mid-request interruptions), or use `docker compose restart backend` after each change. See gotcha #16.
+
+5. **`config/sources.yaml` path mismatch** — Code resolves to `/config/sources.yaml` (filesystem root), but Docker mounts `./config` to `/app/config`. The `.get()` fallbacks work, but fix the `load_yaml_config` path resolution for correctness. See gotcha #13.
+
+### Nice-to-Have Polish
+
+Lower priority improvements if time permits:
+
+- **CORS middleware** — Not needed now (Docker networking + Next.js proxy), but add `CORSMiddleware` if the API is ever exposed directly.
+- **`version: '3.8'` in docker-compose.yml** — Remove it (Docker Compose v2 ignores it but logs a warning on every startup).
+- **Frontend tests** — Unit test ThemeToggle, error boundaries, mobile bottom sheet, dashboard pagination.
+- **CI/CD** — GitHub Actions for lint, typecheck, pytest on push/PR.
+- **production docker-compose** — Separate `docker-compose.prod.yml` with no volume mounts, healthchecks on all services, resource limits.
+
+### Frontend Polish — COMPLETED
+
+| Item | Files | Description |
+|------|-------|-------------|
+| Error boundaries | `error.tsx`, `chat/error.tsx`, `not-found.tsx` | Global error page + chat-specific error + 404 page, all with retry/home actions |
+| Mobile nav | `_components/Header.tsx` | Converted to client component, hamburger menu with backdrop + slide-down drawer, body scroll lock |
+| Chat mobile | `chat/page.tsx` | Bottom sheet for recent queries (FAB trigger on mobile), backdrop dismiss, preserves desktop sidebar |
+| Touch targets | `dashboard/page.tsx` | Pagination buttons now `min-h-[44px]` for touch accessibility |
+| Dark mode | `styles/design-tokens.css`, `styles/globals.css`, `_components/ThemeToggle.tsx`, `_components/Header.tsx`, `layout.tsx` | CSS custom properties with `[data-theme="dark"]` overrides, system preference detection, localStorage persistence, flash-prevention inline script, sun/moon toggle in header |
 
 ## Stack
 
@@ -344,7 +373,7 @@ frontend/
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic |
 | Databases | PostgreSQL 16 (analytics), MongoDB 7 (staging) |
 | Meta API | `facebook_business` SDK (REST) |
-| LLM | Gemini via `google-genai-sdk` |
+| LLM | Gemini 2.5 Flash via `google-genai` |
 | Frontend | Next.js 16, TypeScript, Tailwind CSS v4 |
 | Testing | pytest, pytest-asyncio, testcontainers, httpx_mock / responses |
 | Infrastructure | Docker Compose (4 services) |
@@ -371,7 +400,7 @@ sqlalchemy[asyncio]
 asyncpg
 motor  # async MongoDB
 facebook-business  # Meta API SDK
-google-genai-sdk  # Gemini
+google-genai  # Gemini
 pydantic-settings
 pyyaml
 alembic
@@ -451,3 +480,6 @@ docker compose exec backend pytest
 11. **Dashboard KPIs**: Computed client-side from `/api/insights` data (full fetch with `date_from=2024-01-01`). For large datasets, add a dedicated aggregate endpoint or server-side aggregation.
 12. **Insights model**: Uses `Text PK` (UUID string), not `SERIAL`. The `UniqueConstraint(ad_id, date)` enables the `ON CONFLICT` upsert. Partitioning was removed (conflicts with PG's requirement that partition columns appear in all unique constraints).
 13. **`settings.meta_ads`**: Now populated automatically from `config/sources.yaml` on import. Gracefully falls back to empty dict if YAML file is missing (useful for CI/testing).
+14. **Valid Gemini model names**: As of May 2026, `gemini-2.5-flash` is the latest stable Flash model. `gemini-3-flash` is not yet available via the API (only `gemini-3-flash-preview` exists). Updated config defaults to `gemini-2.5-flash`.
+15. **facebook-business SDK fields**: Field names use underscore format (e.g. `adset_id`, `date_start`). The SDK returns raw API data as `dict()` — JSON/JSONB columns in PostgreSQL require `json.dumps()` serialization via the transform pipeline before upsert. Date/time strings are parsed to offset-naive UTC `datetime` objects.
+16. **Backend container runs without `--reload`** to avoid file-change interruptions during request handling. Restart with `docker compose restart backend` after code changes.

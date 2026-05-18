@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.services.sync_service import data_sync_service
 from app.core.database import get_db
 from app.repositories.postgres_repository import postgres_repository
+from app.repositories.mongo_repository import mongo_repository
 from app.services.llm_agent_service import llm_agent_service
 from app.services.validation.sql_validator import sql_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from app.models.postgres import Campaign, AdSet, Ad, Insight
 import logging
 
@@ -19,12 +20,18 @@ api_router = APIRouter()
 async def health_check():
     return {"status": "ok"}
 
+# Schema introspection endpoint
+@api_router.get("/schema")
+async def get_schema():
+    """Get DDL introspection for all database tables."""
+    ddl = llm_agent_service._get_schema_ddl()
+    return {"schema": ddl}
+
 # Data synchronization endpoints
 @api_router.post("/fetch")
 async def trigger_data_sync(
     full: bool = Query(False, description="Trigger full re-sync instead of incremental"),
-    db: AsyncSession = Depends(get_db)
-) -> Dict[str, int]:
+) -> Dict[str, Any]:
     """Trigger manual data synchronization."""
     try:
         result = await data_sync_service.sync_all(full_sync=full)
@@ -39,18 +46,8 @@ async def trigger_data_sync(
 @api_router.get("/fetch/status")
 async def get_sync_status() -> Dict:
     """Get last sync status and statistics."""
-    # This would typically query a sync_status table or collection
-    # For now, we'll return placeholder data
-    return {
-        "last_sync": None,
-        "records_synced": {
-            "campaigns": 0,
-            "ad_sets": 0,
-            "ads": 0,
-            "insights": 0
-        },
-        "status": "idle"
-    }
+    status = await mongo_repository.get_sync_status()
+    return status
 
 # Read API endpoints - Phase 3
 @api_router.get("/campaigns")

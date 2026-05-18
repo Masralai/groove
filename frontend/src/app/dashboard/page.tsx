@@ -318,7 +318,7 @@ export default function DashboardPage() {
                     <button
                       onClick={() => setOffset(Math.max(0, offset - limit))}
                       disabled={offset === 0}
-                      className="btn-ghost text-xs py-1 px-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-ghost text-xs py-2 px-3 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
                       aria-label="Previous page"
                     >
                       Previous
@@ -326,7 +326,7 @@ export default function DashboardPage() {
                     <button
                       onClick={() => setOffset(offset + limit)}
                       disabled={campaigns.length < limit}
-                      className="btn-secondary text-xs py-1 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-secondary text-xs py-2 px-4 min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed"
                       aria-label="Next page"
                     >
                       Next

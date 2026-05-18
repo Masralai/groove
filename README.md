@@ -56,7 +56,7 @@ The system consists of two main parts:
 campaigns (id TEXT PK, name, status, objective, daily_budget, lifetime_budget, created_time, start_time, stop_time, created_at, updated_at)
 ad_sets   (id TEXT PK, campaign_id FK, name, status, daily_budget, lifetime_budget, targeting JSONB, bid_strategy, created_time, created_at, updated_at)
 ads       (id TEXT PK, ad_set_id FK, name, status, creative JSONB, created_time, created_at, updated_at)
-insights  (id SERIAL PK, ad_id FK, date DATE, impressions INT, clicks INT, spend NUMERIC, reach INT, frequency NUMERIC, ctr NUMERIC, cpc NUMERIC, cpm NUMERIC, conversions INT, conversion_value NUMERIC, UNIQUE(ad_id, date), created_at, updated_at)
+insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend NUMERIC, reach INT, frequency NUMERIC, ctr NUMERIC, cpc NUMERIC, cpm NUMERIC, conversions INT, conversion_value NUMERIC, UNIQUE(ad_id, date), created_at, updated_at)
 ```
 
 ### MongoDB (Raw Staging)
@@ -76,7 +76,7 @@ insights  (id SERIAL PK, ad_id FK, date DATE, impressions INT, clicks INT, spend
 | GET | `/api/insights` | Query insights (?date_from, ?date_to, ?campaign_id) |
 | POST | `/api/chat` | `{ query: string } → { answer, sql, data }` |
 | GET | `/api/schema` | DDL introspection |
-| GET | `/health` | Health check |
+| GET | `/api/health` | Health check |
 
 ## Technology Stack
 
@@ -85,8 +85,8 @@ insights  (id SERIAL PK, ad_id FK, date DATE, impressions INT, clicks INT, spend
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic |
 | Databases | PostgreSQL 16 (analytics), MongoDB 7 (staging) |
 | Meta API | `facebook_business` SDK (REST) |
-| LLM | Gemini via `google-genai-sdk` |
-| Frontend | Next.js 14, TypeScript, Tailwind CSS |
+| LLM | Gemini 3 Flash via `google-genai` |
+| Frontend | Next.js 16, TypeScript, Tailwind CSS v4 |
 | Testing | pytest, pytest-asyncio, testcontainers, httpx_mock / responses |
 | Infrastructure | Docker Compose (4 services) |
 | Config | YAML (`config/sources.yaml`) |
@@ -150,7 +150,7 @@ Optional variables with defaults in code:
 docker compose up --build
 
 # Check health
-curl http://localhost:8000/health
+curl http://localhost:8000/api/health
 
 # Trigger manual sync
 curl -X POST http://localhost:8000/api/fetch
@@ -165,14 +165,13 @@ curl -X POST http://localhost:8000/api/chat \
 ```
 
 ### Local Development
-For backend development:
 ```bash
 # Backend
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8000
 
-# Frontend (when implemented)
+# Frontend
 cd frontend
 npm install
 npm run dev
@@ -207,6 +206,8 @@ Test suite includes:
 3. **APScheduler + multi-worker**: The PG advisory lock prevents double-fires. For production, use a dedicated scheduler container.
 4. **MongoDB vs JSONB kept separate** — not merged per PRD decision. If asked why, refer to DECISIONS.md #1.
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
-6. **Frontend DESIGN.md**: Use `frontend-design` skill when implementing. File goes in `frontend/DESIGN.md`.
+6. **Frontend DESIGN.md**: See `DESIGN.md` at project root for the design system reference (Grafbase-inspired engineering aesthetic). The Tailwind v4 `@theme` block in `frontend/styles/globals.css` implements these tokens.
 7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. Acceptable latency (3-4s total) for single-user tool.
 8. **Production PostgreSQL user**: For security, use a dedicated read-only user for the LLM agent service (see DECISIONS.md #11).
+9. **Frontend docker-compose**: The `frontend` service in `docker-compose.yml` builds with `API_URL=http://backend:8000` and exposes port 3000. All four services (postgres, mongodb, backend, frontend) start together with `docker compose up --build`.
+10. **Full-stack verification**: The frontend at `localhost:3000` proxies `/api/*` to the backend via Next.js rewrites. `curl localhost:3000/api/health` works without hitting the backend directly.

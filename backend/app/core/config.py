@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     
     # Gemini/LLM Settings
     GEMINI_API_KEY: str
+    GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
     
     # Database Settings
     POSTGRES_DSN: PostgresDsn
