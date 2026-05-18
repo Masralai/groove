@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 # Create non-root user
 RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 --gid appgroup appuser
+    adduser --system --uid 1001 --ingroup appgroup --no-create-home appuser
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .

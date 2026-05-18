@@ -168,16 +168,34 @@ curl -X POST http://localhost:8000/api/chat \
 ```
 
 ### Local Development
+
+> **Prerequisite**: Postgres (port 5432) and MongoDB (port 27017) must be running before starting the backend. The easiest way is via Docker:
+> ```bash
+> docker compose up -d postgres mongodb
+> ```
+> This starts both databases as daemons. They stay up until you run `docker compose down`.
+
 ```bash
-# Backend
+# Backend (requires Postgres + MongoDB to already be running)
 cd backend
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
+
+# Override DB hostnames for local dev (Docker names don't resolve on host)
+POSTGRES_DSN="postgresql+asyncpg://groove:groove@localhost:5432/groove" \
+MONGODB_URI="mongodb://localhost:27017/groove" \
 uvicorn app.main:app --reload --port 8000
 
-# Frontend
+# Frontend (separate terminal, after backend is ready)
 cd frontend
 npm install
 npm run dev
+```
+
+The frontend dev server proxies `/api/*` calls to the backend via Next.js rewrites. Verify the full chain:
+```bash
+curl http://localhost:3000/api/health
 ```
 
 ## Testing
