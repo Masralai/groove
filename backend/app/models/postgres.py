@@ -2,7 +2,7 @@ from sqlalchemy import Column, Text, Numeric, Integer, DateTime, Date, Boolean, 
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.core.database import Base
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Campaign(Base):
     __tablename__ = "campaigns"
@@ -16,8 +16,8 @@ class Campaign(Base):
     created_time = Column(DateTime)
     start_time = Column(DateTime)
     stop_time = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 class AdSet(Base):
     __tablename__ = "ad_sets"
@@ -31,8 +31,8 @@ class AdSet(Base):
     targeting = Column(JSONB)
     bid_strategy = Column(Text)
     created_time = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 class Ad(Base):
     __tablename__ = "ads"
@@ -43,8 +43,8 @@ class Ad(Base):
     status = Column(Text)
     creative = Column(JSONB)
     created_time = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 class Insight(Base):
     __tablename__ = "insights"
@@ -62,8 +62,8 @@ class Insight(Base):
     cpm = Column(Numeric)
     conversions = Column(Integer)
     conversion_value = Column(Numeric)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
     __table_args__ = (
         UniqueConstraint('ad_id', 'date', name='uq_insights_ad_id_date'),

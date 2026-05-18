@@ -2,7 +2,6 @@ import os
 import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, patch, MagicMock
-from motor.motor_asyncio import AsyncIOMotorClient
 from app.repositories.mongo_repository import MongoRepository
 
 # Mock environment variables for testing
@@ -14,50 +13,29 @@ os.environ["MONGODB_URI"] = "mongodb://localhost:27017/test_db"
 
 @pytest.fixture
 def mock_mongo_client():
-    """Create a mock MongoDB client."""
-    with patch('motor.motor_asyncio.AsyncIOMotorClient') as mock_client_class:
-        # Mock the client instance
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        
-        # Mock the database and collections
-        mock_db = MagicMock()
-        mock_client.get_database.return_value = mock_db
-        
-        # Mock collections
-        mock_campaigns = MagicMock()
-        mock_ad_sets = MagicMock()
-        mock_ads = MagicMock()
-        mock_insights = MagicMock()
-        
-        mock_db.__getitem__.side_effect = lambda x: {
-            'campaigns_raw': mock_campaigns,
-            'ad_sets_raw': mock_ad_sets,
-            'ads_raw': mock_ads,
-            'insights_raw': mock_insights
-        }[x]
-        
-        # Mock insert_many to return a result with inserted_ids
-        mock_result = MagicMock()
-        mock_result.inserted_ids = ['id1', 'id2', 'id3']
-        
-        # Configure the mock collections to return async mocks for insert_many
-        async def mock_insert_many(docs):
+    """Patch collection references directly at the repository module level."""
+    mock_result = MagicMock()
+    mock_result.inserted_ids = ['id1', 'id2', 'id3']
+
+    with patch('app.repositories.mongo_repository.campaigns_raw') as mock_campaigns, \
+         patch('app.repositories.mongo_repository.ad_sets_raw') as mock_ad_sets, \
+         patch('app.repositories.mongo_repository.ads_raw') as mock_ads, \
+         patch('app.repositories.mongo_repository.insights_raw') as mock_insights:
+
+        async def insert_many_side_effect(docs):
+            mock_result.inserted_ids = [f'id{i}' for i in range(len(docs))]
             return mock_result
-            
-        mock_campaigns.insert_many = mock_insert_many
-        mock_ad_sets.insert_many = mock_insert_many
-        mock_ads.insert_many = mock_insert_many
-        mock_insights.insert_many = mock_insert_many
-        
+
+        mock_campaigns.insert_many = AsyncMock(side_effect=insert_many_side_effect)
+        mock_ad_sets.insert_many = AsyncMock(side_effect=insert_many_side_effect)
+        mock_ads.insert_many = AsyncMock(side_effect=insert_many_side_effect)
+        mock_insights.insert_many = AsyncMock(side_effect=insert_many_side_effect)
+
         yield {
-            'client': mock_client,
-            'db': mock_db,
             'campaigns': mock_campaigns,
             'ad_sets': mock_ad_sets,
             'ads': mock_ads,
             'insights': mock_insights,
-            'result': mock_result
         }
 
 @pytest.fixture

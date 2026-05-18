@@ -7,7 +7,7 @@ os.environ["MONGODB_URI"] = "mongodb://localhost:27017/db"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.services.sync_service import DataSyncService
 
 
@@ -33,8 +33,8 @@ class TestGetLastSyncDate:
 
             result = await sync_service._get_last_sync_date()
             assert result is not None
-            assert result > datetime.utcnow() - timedelta(days=61)
-            assert result < datetime.utcnow() - timedelta(days=59)
+            assert result > datetime.now(timezone.utc) - timedelta(days=61)
+            assert result < datetime.now(timezone.utc) - timedelta(days=59)
 
     async def test_exception_returns_fallback(self, sync_service):
         with patch("app.services.sync_service.insights_raw") as mock_collection:
@@ -42,7 +42,7 @@ class TestGetLastSyncDate:
 
             result = await sync_service._get_last_sync_date()
             assert result is not None
-            assert result < datetime.utcnow()
+            assert result < datetime.now(timezone.utc)
 
 
 @pytest.mark.asyncio

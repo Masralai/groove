@@ -32,7 +32,7 @@ The system consists of two main parts:
 │  :3000     │───▶│         :8000               │───▶│  :5432       │
 │            │    │                             │    │              │
 │  Dashboard │    │  Fetch Router  Chat Router  │    │  analytics   │
-│  Chat Page │    │  DataSyncSvc   LLM Agent    │    │  (4 tables)  │
+│  Chat Page │    │  DataSyncSvc   LLM Service    │    │  (4 tables)  │
 └────────────┘    │  MetaAPISvc    SQL Validator│    └──────────────┘
                   │  Config (YAML)              │
                   │  APScheduler                │    ┌──────────────┐
@@ -46,7 +46,7 @@ The system consists of two main parts:
 - **MetaAPI Service**: REST calls to Graph API via `facebook_business` SDK, pagination, rate-limit backoff
 - **Data Sync Service**: Orchestrates fetch → MongoDB → transform → PostgreSQL upsert
 - **Transform Pipeline**: Raw JSON → typed records with field mapping
-- **LLM Agent Service**: Gemini integration, text-to-SQL, result summarization
+- **LLM Service**: Gemini integration, text-to-SQL, result summarization
 - **SQL Validator**: Multi-layer validation (regex block on DDL, single-statement enforcement, read-only txn)
 
 ## Data Model
@@ -85,7 +85,7 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic |
 | Databases | PostgreSQL 16 (analytics), MongoDB 7 (staging) |
 | Meta API | `facebook_business` SDK (REST) |
-| LLM | Gemini 3 Flash via `google-genai` |
+| LLM | Gemini 2.5 Flash via `google-genai` |
 | Frontend | Next.js 16, TypeScript, Tailwind CSS v4 |
 | Testing | pytest, pytest-asyncio, testcontainers, httpx_mock / responses |
 | Infrastructure | Docker Compose (4 services) |
@@ -195,7 +195,7 @@ Test suite includes:
 - Integration tests for MongoDB persistence
 - Integration tests for PostgreSQL upsert operations
 - Integration tests for API endpoints
-- Unit tests for LLM agent SQL generation
+- Unit tests for LLM SQL generation
 - Unit tests for SQL validation
 - Integration tests for full chat flow
 
@@ -208,6 +208,6 @@ Test suite includes:
 5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
 6. **Frontend DESIGN.md**: See `DESIGN.md` at project root for the design system reference (Grafbase-inspired engineering aesthetic). The Tailwind v4 `@theme` block in `frontend/styles/globals.css` implements these tokens.
 7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. Acceptable latency (3-4s total) for single-user tool.
-8. **Production PostgreSQL user**: For security, use a dedicated read-only user for the LLM agent service (see DECISIONS.md #11).
+8. **Production PostgreSQL user**: For security, use a dedicated read-only user for the LLM service (see DECISIONS.md #11).
 9. **Frontend docker-compose**: The `frontend` service in `docker-compose.yml` builds with `API_URL=http://backend:8000` and exposes port 3000. All four services (postgres, mongodb, backend, frontend) start together with `docker compose up --build`.
 10. **Full-stack verification**: The frontend at `localhost:3000` proxies `/api/*` to the backend via Next.js rewrites. `curl localhost:3000/api/health` works without hitting the backend directly.

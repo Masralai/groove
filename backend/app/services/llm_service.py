@@ -6,8 +6,8 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-class LLMAgentService:
-    """Service for Gemini LLM integration for text-to-SQL generation and result summarization."""
+class LLMService:
+    """Service for Gemini LLM API integration for text-to-SQL generation and result summarization."""
     
     def __init__(self):
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -264,4 +264,4 @@ Provide a brief summary (1-2 sentences) of what the data shows in response to th
 
 
 # Singleton instance
-llm_agent_service = LLMAgentService()
+llm_service = LLMService()

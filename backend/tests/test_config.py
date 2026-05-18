@@ -1,6 +1,6 @@
 import pytest
 from pydantic_settings import BaseSettings
-from pydantic import PostgresDsn
+from pydantic import PostgresDsn, ConfigDict
 from typing import Optional
 import yaml
 import os
@@ -17,8 +17,7 @@ class TestSettings(BaseSettings):
     POSTGRES_DSN: PostgresDsn = "postgresql+asyncpg://user:pass@localhost/db"
     MONGODB_URI: str = "mongodb://localhost:27017/db"
     
-    class Config:
-        env_file = ".env.test"
+    model_config = ConfigDict(env_file=".env.test")
 
 def test_settings_load():
     """Test that settings load correctly from environment."""

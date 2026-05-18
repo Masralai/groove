@@ -4,6 +4,29 @@
 
 Production-ready service integrating with the Meta Marketing API to fetch ads data (campaigns, ad sets, ads, insights) into PostgreSQL + MongoDB, with a natural language chatbot powered by Gemini.
 
+## Completed Since Last Handover
+
+| Item | Description |
+|------|-------------|
+| Bug fix: ad_id in insights transform | Added `ad_id` to `META_DEFAULT_FIELDS['insights']`, `sources.yaml`, and `transform_insight()` output — unblocks "Insights return 0" |
+| Bug fix: event loop blocking | Wrapped all 4 SDK fetch methods in `run_in_executor(ThreadPoolExecutor(max_workers=4))` |
+| Bug fix: hardcoded dashboard date | Replaced `date_from=2024-01-01` with dynamic 30d-ago |
+| Config path resolution | `load_yaml_config()` now tries 3 fallback paths (local dev, Docker `/app/config`, absolute) |
+| `--reload` re-enabled | Added to docker-compose uvicorn command (faster iteration over interruption risk) |
+| `version: '3.8'` removed | No more Docker Compose v2 startup warning |
+| `datetime.utcnow()` replaced | 20 occurrences across 4 files → `datetime.now(timezone.utc)` |
+| Pydantic `class Config` replaced | 2 files → `model_config = ConfigDict(...)` |
+| Renamed: LLM Agent → LLM Service | `LLMAgentService` → `LLMService`, `llm_agent_service.py` → `llm_service.py`, all docs updated |
+| Backend tests: 106 passing | 11 pre-existing failures fixed (LLM agent mocking, MongoDB patching, chat DB override, router wiring) |
+| Frontend test infra | `vitest` + `@testing-library/react` installed, configured, 1 passing test |
+
+### LLM Tests Fixed
+
+| File | Approach |
+|------|----------|
+| `tests/test_llm/test_llm_service.py` | Patches `llm_service.client.models.generate_content` directly (module-level singleton, can't mock constructor) |
+| `tests/test_llm/test_chat_integration.py` | Uses `app.dependency_overrides[get_db]` instead of `patch('app.core.database.get_db')` (FastAPI caches function refs at import time) |
+
 ## Current State
 
 ### Documents Written
@@ -45,8 +68,8 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 - PostgreSQL repository with read operations
 - Comprehensive test suite for new endpoints
 
-**Phase 4: LLM Agent + Chat** - COMPLETED
-- LLM Agent service with Gemini integration for text-to-SQL generation and result summarization
+**Phase 4: LLM Service + Chat** - COMPLETED
+- LLM Service with Gemini API integration for text-to-SQL generation and result summarization
 - SQL Validator service with multi-layered protection (regex block, single-statement enforcement, read-only transactions)
 - Chat endpoint (/api/chat) for natural language queries with error handling and retry logic
 - System prompt engineering with schema injection and few-shot examples
@@ -74,7 +97,7 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 |-----|-------|-------------|
 | Runtime bug 1 | `core/config.py` | `settings.meta_ads` now populated from YAML config on module load, with graceful FileNotFoundError fallback |
 | Runtime bug 2 | `models/postgres.py` | Added `UniqueConstraint(ad_id, date)` — without it the `ON CONFLICT` upsert would crash at runtime |
-| Runtime bug 3 | `services/llm_agent_service.py` | DDL in system prompt now matches actual model (TEXT PK instead of SERIAL, date NOT NULL) |
+| Runtime bug 3 | `services/llm_service.py` | DDL in system prompt now matches actual model (TEXT PK instead of SERIAL, date NOT NULL) |
 | Path resolution | `core/config.py` | `load_yaml_config` goes up 4 dir levels (not 3) to find project-root `config/sources.yaml` |
 | Partitioning | `models/postgres.py` | Removed `PARTITION BY RANGE (date)` — PG requires partition columns in all unique constraints, and partitioning is unnecessary at this scale |
 | MongoDB healthcheck | `docker-compose.yml` | Fixed `mongo` → `mongosh` for MongoDB 7 compatibility |
@@ -89,7 +112,7 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 │  :3000     │───▶│         :8000                │───▶│  :5432       │
 │            │    │                              │    │              │
 │  Dashboard │    │  Fetch Router  Chat Router   │    │  analytics   │
-│  Chat Page │    │  DataSyncSvc   LLM Agent     │    │  (4 tables)  │
+│  Chat Page │    │  DataSyncSvc   LLM Service   │    │  (4 tables)  │
 └────────────┘    │  MetaAPISvc    SQL Validator │    └──────────────┘
                   │  Config (YAML)               │
                   │  APScheduler                 │    ┌──────────────┐
@@ -106,7 +129,7 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 | MetaAPI Service | REST calls to Graph API via `facebook_business` SDK, pagination, rate-limit backoff |
 | Data Sync Service | Orchestrates fetch → MongoDB → transform → PostgreSQL upsert |
 | Transform Pipeline | Raw JSON → typed records with field mapping |
-| LLM Agent Service | Gemini integration, text-to-SQL, result summarization |
+| LLM Service | Gemini API integration, text-to-SQL, result summarization |
 | SQL Validator | Multi-layer: regex block on DDL, single-statement enforcement, read-only txn |
 
 ### Data Model
@@ -207,14 +230,14 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 | RED | GET /api/insights with date range + campaign filter | Filtered query works |
 | GREEN | insights endpoint with query params | |
 
-### Phase 4: LLM Agent + Chat - COMPLETED
+### Phase 4: LLM Service + Chat - COMPLETED
 
 **Skills:** `supabase-postgres-best-practices` for query injection prevention patterns
 
 | Order | Test | What it proves |
 |-------|------|---------------|
-| RED | LLM Agent generates valid SQL from user query | Prompt engineering works |
-| GREEN | LLMAgentService with Gemini client + 3-part system prompt | |
+| RED | LLM generates valid SQL from user query | Prompt engineering works |
+| GREEN | LLMService with Gemini client + 3-part system prompt | |
 | RED | SQL validator rejects DDL / multi-statement queries | Security mitigation works |
 | GREEN | SQLValidator with regex + sqlparse + read-only enforcement | |
 | RED | POST /api/chat returns answer | Full chat flow |
@@ -324,37 +347,75 @@ frontend/
 
 ### Current Status
 
-- All 7 API endpoints work end-to-end ✓
+- All 8 API endpoints work end-to-end ✓
 - Real Meta data sync works (3 campaigns, 4 ad sets, 4 ads) ✓
 - Chat works (real LLM → SQL generation → execute → summarize) ✓
 - Frontend: landing, dashboard, chat, 404 page all load ✓
 - Dark mode, mobile nav, error boundaries deployed ✓
 - Frontend proxy (`:3000/api/*`) works ✓
-- **Insights return 0** — Meta account may have no insight data, or query level/date range needs adjustment
+- **106 backend tests passing**, 0 failing ✓
+- **Frontend vitest infra ready**, 1 test passing ✓
+- **Deprecation warnings**: 5 remaining (all `on_event` lifespan — intentionally skipped, project concludes in 1 week)
+- **Insights return 0** — `ad_id` field fixed in transform pipeline; remaining issue may be that Meta account has no insight data, or query level/date range needs adjustment
 
 ### What Still Needs Work
 
-High priority items for the next agent:
+Grouped by priority and category:
 
-1. **README.md** — Never created. Use `create-readme` skill. Cover: setup guide, architecture overview, API reference, environment variables, full verification commands (from the Verification section below).
+#### 1. Security
 
-2. **Insights returning 0** — Investigate: is the Meta account truly empty for insights, or does the query level/date range need adjustment? Test with different `level` params (`ad`, `campaign`) and wider date ranges. Insights raw docs do appear in MongoDB (4 docs seen), but PostgreSQL upserts 0.
+| Issue | Detail | Impact |
+|-------|--------|--------|
+| **No CORS middleware** | `CORSMiddleware` not configured. Next.js proxy works, but any direct API call from browser is blocked | Prevents direct API access from external clients |
+| **`SECRET_KEY` hardcoded default** | `config.py:27`: `"dev-secret-key-change-in-production"` — not overridden in production | Vulnerability if this default is used in production |
+| **No read-only DB user** | DECISIONS.md #11 specifies `llm_agent` role with SELECT-only perms for chat endpoint; never created | Chat LLM could potentially write to DB if SQL injection bypasses validator |
+| **Real credentials in `.env`** | `.env` contains live API tokens. Already in `.gitignore`, but verify `git log --all --diff-filter=A -- .env` that they were never committed | Credential leak via git history |
 
-3. **Test coverage gaps** — Backend tests exist but don't cover: transform pipeline date parsing, `_serialize()` JSON handling, `_prepare_record()` logic, updated Meta API service field names. Frontend has zero tests — start with `vitest` + `@testing-library/react` (check existing test tooling first).
+#### 2. Infrastructure & Deployment
 
-4. **Backend has `--reload` removed** — For iteration, either re-enable `--reload` in `docker-compose.yml` (beware of mid-request interruptions), or use `docker compose restart backend` after each change. See gotcha #16.
+| Issue | Detail | Impact |
+|-------|--------|--------|
+| **No CI/CD** | No GitHub Actions or equivalent for test-on-push | Changes can break tests without detection |
+| **No production deployment configs** | No K8s manifests, Helm charts, Terraform, or `docker-compose.prod.yml` | Can't deploy to production without manual setup |
+| **No HEALTHCHECK in Dockerfiles** | Both backend and frontend containers lack health probes | `depends_on` waits for container start, not app readiness |
+| **Backend runs as root** | Both Dockerfiles should create and use a non-root user | Security best practice violation |
+| **Backend has no `.dockerignore`** | `venv/` and `__pycache__/` get shipped to Docker daemon | Slower builds, unnecessary context transfers |
 
-5. **`config/sources.yaml` path mismatch** — Code resolves to `/config/sources.yaml` (filesystem root), but Docker mounts `./config` to `/app/config`. The `.get()` fallbacks work, but fix the `load_yaml_config` path resolution for correctness. See gotcha #13.
+#### 3. Frontend Tests
 
-### Nice-to-Have Polish
+| Issue | Detail |
+|-------|--------|
+| **14 components untested** | Only `Home.test.tsx` exists. Missing: `Header.tsx`, `ThemeToggle.tsx`, `dashboard/page.tsx` (344 lines), `chat/page.tsx` (378 lines), `KPICard.tsx`, `EmptyState.tsx`, `LoadingState.tsx`, error boundaries, layouts |
+| **Dashboard helpers not extractable** | `formatCurrency`, `computeKPIs`, `formatCompact`, `trendChange`, `statusBadgeClass` in `dashboard/page.tsx` are module-local — need to be exported to a shared utility for unit testing |
 
-Lower priority improvements if time permits:
+#### 4. Backend Gaps
 
-- **CORS middleware** — Not needed now (Docker networking + Next.js proxy), but add `CORSMiddleware` if the API is ever exposed directly.
-- **`version: '3.8'` in docker-compose.yml** — Remove it (Docker Compose v2 ignores it but logs a warning on every startup).
-- **Frontend tests** — Unit test ThemeToggle, error boundaries, mobile bottom sheet, dashboard pagination.
-- **CI/CD** — GitHub Actions for lint, typecheck, pytest on push/PR.
-- **production docker-compose** — Separate `docker-compose.prod.yml` with no volume mounts, healthchecks on all services, resource limits.
+| Issue | Detail |
+|-------|--------|
+| **Advisory lock not implemented** | PRD Decision #3 specifies `pg_try_advisory_xact_lock(42)` in `sync_all()` to prevent concurrent syncs. Not implemented — two simultaneous `POST /api/fetch` calls could corrupt data |
+| **Row-by-row upsert is slow** | `postgres_repository.py` executes individual `INSERT ... ON CONFLICT` per row. For large datasets (10k+ insights), batch upsert would be far more performant |
+| **No `pyproject.toml`** | PRD scaffold references `pyproject.toml`, only `requirements.txt` exists. Modern Python projects typically use `pyproject.toml` |
+| **`testcontainers` unused** | `testcontainers[postgres,mongodb]` in `requirements.txt` but all tests use mocks — no real DB integration tests |
+| **`API_V1_STR` config unused** | `config.py:11` sets `API_V1_STR = "/api/v1"`, but router is mounted at `/api` in `main.py:67` |
+
+#### 5. Code Quality & Architecture
+
+| Issue | Detail |
+|-------|--------|
+| **No Python linter/formatter** | No `ruff`, `black`, `mypy`, or `flake8` configuration. Frontend has ESLint, backend has nothing |
+| **Two `EmptyState` implementations** | Reusable one in `src/components/EmptyState.tsx` + inline duplicate in `chat/page.tsx` (lines 157-169). Should be unified |
+| **`design-tokens.css` is dead code** | 105 lines of CSS custom properties in `styles/design-tokens.css` — never imported anywhere. Root layout imports `globals.css` only |
+| **Dark mode may be broken** | `globals.css` dark-mode overrides (lines 269-281) reference `--color-dark-*` variables only defined in the unimported `design-tokens.css` |
+| **No `pre-commit` config** | No `.pre-commit-config.yaml` for automated linting/formatting on commits |
+| **Single Alembic migration** | Only `0001_initial.py` exists — any future schema change requires manual migration creation |
+
+#### 6. Documentation
+
+| Issue | Detail |
+|-------|--------|
+| **README missing 3 sections** | Prompt Engineering, Security, and Scaling sections (all required by PRD) are absent from `README.md` |
+| **`SECURITY.md` doesn't exist** | Referenced in DECISIONS.md #11 as the file containing read-only PostgreSQL user setup — never created |
+| **Model name mismatch in README** | `README.md` says "Gemini 3 Flash", but code defaults to `gemini-2.5-flash` (and HANDOVER gotcha #14 confirms 2.5 Flash is the correct stable model) |
 
 ### Frontend Polish — COMPLETED
 
@@ -477,9 +538,9 @@ docker compose exec backend pytest
 8. **Frontend design system**: DESIGN.md is the source of truth. Tailwind v4 `@theme` block in `styles/globals.css` implements it.
 9. **Frontend Docker build**: Requires `API_URL` build arg (set in docker-compose.yml). The frontend `next.config.ts` reads this at build time for the rewrites destination. During `npm run dev` it reads from `.env.local`.
 10. **Client component patterns**: Chat page uses `"use client"` for interactive state. Dashboard is also `"use client"` (needs state for filters/pagination/sync). Landing page remains a server component.
-11. **Dashboard KPIs**: Computed client-side from `/api/insights` data (full fetch with `date_from=2024-01-01`). For large datasets, add a dedicated aggregate endpoint or server-side aggregation.
+11. **Dashboard KPIs**: Computed client-side from `/api/insights` data (full fetch with dynamic 30d-ago date). For large datasets, add a dedicated aggregate endpoint or server-side aggregation.
 12. **Insights model**: Uses `Text PK` (UUID string), not `SERIAL`. The `UniqueConstraint(ad_id, date)` enables the `ON CONFLICT` upsert. Partitioning was removed (conflicts with PG's requirement that partition columns appear in all unique constraints).
 13. **`settings.meta_ads`**: Now populated automatically from `config/sources.yaml` on import. Gracefully falls back to empty dict if YAML file is missing (useful for CI/testing).
 14. **Valid Gemini model names**: As of May 2026, `gemini-2.5-flash` is the latest stable Flash model. `gemini-3-flash` is not yet available via the API (only `gemini-3-flash-preview` exists). Updated config defaults to `gemini-2.5-flash`.
 15. **facebook-business SDK fields**: Field names use underscore format (e.g. `adset_id`, `date_start`). The SDK returns raw API data as `dict()` — JSON/JSONB columns in PostgreSQL require `json.dumps()` serialization via the transform pipeline before upsert. Date/time strings are parsed to offset-naive UTC `datetime` objects.
-16. **Backend container runs without `--reload`** to avoid file-change interruptions during request handling. Restart with `docker compose restart backend` after code changes.
+16. **Backend container runs with `--reload`** for faster iteration during development. `docker compose restart backend` after adding new dependencies (volumes are mounted, so code changes trigger auto-reload). Beware of mid-request interruptions during heavy sync operations.

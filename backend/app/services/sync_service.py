@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import AsyncGenerator, Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.services.meta_api_service import meta_api_service
 from app.models.mongo import campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 from app.repositories.mongo_repository import mongo_repository
@@ -37,22 +37,22 @@ class DataSyncService:
                 return latest_insight['_stored_at']
             
             # Default to 60 days ago for first sync
-            return datetime.utcnow() - timedelta(days=60)
+            return datetime.now(timezone.utc) - timedelta(days=60)
         except Exception as e:
             logger.warning(f"Could not determine last sync date: {e}")
             # Default to 60 days ago
-            return datetime.utcnow() - timedelta(days=60)
+            return datetime.now(timezone.utc) - timedelta(days=60)
     
     async def _get_time_range(self, full_sync: bool = False) -> Dict[str, str]:
         """Get time range for insights fetching."""
         if full_sync:
             # Full sync: last 60 days to today
-            since = datetime.utcnow() - timedelta(days=60)
-            until = datetime.utcnow()
+            since = datetime.now(timezone.utc) - timedelta(days=60)
+            until = datetime.now(timezone.utc)
         else:
             # Incremental sync: since last sync to today
             since = await self._get_last_sync_date()
-            until = datetime.utcnow()
+            until = datetime.now(timezone.utc)
         
         # Format for Meta API
         return {

@@ -1,6 +1,6 @@
 import logging
 from pydantic_settings import BaseSettings
-from pydantic import PostgresDsn
+from pydantic import PostgresDsn, ConfigDict
 from typing import Optional, Any, Dict
 import yaml
 import os
@@ -31,9 +31,7 @@ class Settings(BaseSettings):
     CONFIG_FILE_PATH: str = "config/sources.yaml"
     meta_ads: Dict[str, Any] = {}
     
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
+    model_config = ConfigDict(case_sensitive=True, env_file=".env")
 
 def load_yaml_config(path: str) -> dict[str, Any]:
     """Load YAML configuration file."""

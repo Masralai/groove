@@ -3,7 +3,7 @@ from app.services.sync_service import data_sync_service
 from app.core.database import get_db
 from app.repositories.postgres_repository import postgres_repository
 from app.repositories.mongo_repository import mongo_repository
-from app.services.llm_agent_service import llm_agent_service
+from app.services.llm_service import llm_service
 from app.services.validation.sql_validator import sql_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -24,7 +24,7 @@ async def health_check():
 @api_router.get("/schema")
 async def get_schema():
     """Get DDL introspection for all database tables."""
-    ddl = llm_agent_service._get_schema_ddl()
+    ddl = llm_service._get_schema_ddl()
     return {"schema": ddl}
 
 # Data synchronization endpoints
@@ -133,7 +133,7 @@ async def chat_with_data(
     try:
         # Step 1: Generate SQL from natural language
         logger.info(f"Generating SQL for query: {user_query}")
-        sql_result = await llm_agent_service.generate_sql(user_query)
+        sql_result = await llm_service.generate_sql(user_query)
         
         if not sql_result["success"]:
             logger.error(f"SQL generation failed: {sql_result['error']}")
@@ -151,7 +151,7 @@ async def chat_with_data(
             logger.warning(f"SQL validation failed: {validation_error}")
             # Try to regenerate with error context
             logger.info("Attempting to regenerate SQL with error context")
-            retry_result = await llm_agent_service.generate_sql(
+            retry_result = await llm_service.generate_sql(
                 f"{user_query}\n\nPrevious attempt failed validation: {validation_error}. Please correct the SQL."
             )
             
@@ -194,7 +194,7 @@ async def chat_with_data(
             
             # Try to get LLM to fix the SQL
             logger.info("Attempting to auto-repair SQL with error context")
-            repair_result = await llm_agent_service.generate_sql(
+            repair_result = await llm_service.generate_sql(
                 f"The previous SQL query failed with error: {sanitized_error}\n\nOriginal question: {user_query}\n\nPlease generate a corrected SQL query."
             )
             
@@ -231,7 +231,7 @@ async def chat_with_data(
         
         # Step 4: Summarize the results
         logger.info("Generating summary of results")
-        summary_result = await llm_agent_service.summarize_results(
+        summary_result = await llm_service.summarize_results(
             user_query, generated_sql, query_results
         )
         

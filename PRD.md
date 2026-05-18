@@ -52,10 +52,10 @@ Meta API → DataSyncService → MongoDB (raw JSON) → Transform → PostgreSQL
 ### Flow
 
 ```
-User Query → LLM Agent → Gemini (SQL gen) → SQL Validator → PostgreSQL → Gemini (summarize) → Response
+User Query → LLM Service → Gemini (SQL gen) → SQL Validator → PostgreSQL → Gemini (summarize) → Response
 ```
 
-### LLM Agent Design
+### LLM Service Design
 
 #### System Prompt (3 components)
 
@@ -94,7 +94,7 @@ User Query → LLM Agent → Gemini (SQL gen) → SQL Validator → PostgreSQL �
 │  :3000     │───▶│         :8000               │───▶│  :5432       │
 │            │    │                             │    │              │
 │  Dashboard │    │  Fetch Router  Chat Router  │    │  analytics   │
-│  Chat Page │    │  DataSyncSvc   LLM Agent    │    │              │
+│  Chat Page │    │  DataSyncSvc   LLM Service    │    │              │
 └────────────┘    │  MetaAPISvc    SQL Validator │    └──────────────┘
                   │  Config (YAML)               │
                   │  APScheduler                 │    ┌──────────────┐
@@ -164,7 +164,7 @@ Vertical-slice tracer bullets: one test → one implementation → repeat.
 | 5 | Upsert to PostgreSQL is idempotent | Integration |
 | 6 | GET /api/campaigns returns data | Integration |
 | 7 | POST /api/fetch orchestrates end-to-end | Integration |
-| 8 | LLM Agent generates valid SQL from query | Unit (mocked LLM) |
+| 8 | LLM generates valid SQL from query | Unit (mocked LLM) |
 | 9 | SQL validator rejects DDL statements | Unit |
 | 10 | POST /api/chat returns answer | Integration |
 | 11 | Scheduler fires daily sync | Unit |
