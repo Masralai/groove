@@ -1,14 +1,17 @@
 import os
+
 os.environ["META_ACCESS_TOKEN"] = "test_token"
 os.environ["META_AD_ACCOUNT_ID"] = "act_123456"
 os.environ["GEMINI_API_KEY"] = "test_key"
 os.environ["POSTGRES_DSN"] = "postgresql+asyncpg://user:pass@localhost/db"
 os.environ["MONGODB_URI"] = "mongodb://localhost:27017/db"
 
-import pytest
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta, timezone
-from app.services.sync_service import DataSyncService
+
+import pytest
+
+from app.services.sync_service import DataSyncService, SyncAlreadyRunningError
 
 
 @pytest.fixture
@@ -33,8 +36,8 @@ class TestGetLastSyncDate:
 
             result = await sync_service._get_last_sync_date()
             assert result is not None
-            assert result > datetime.now(timezone.utc) - timedelta(days=61)
-            assert result < datetime.now(timezone.utc) - timedelta(days=59)
+            assert result > datetime.now(UTC) - timedelta(days=61)
+            assert result < datetime.now(UTC) - timedelta(days=59)
 
     async def test_exception_returns_fallback(self, sync_service):
         with patch("app.services.sync_service.insights_raw") as mock_collection:
@@ -42,7 +45,7 @@ class TestGetLastSyncDate:
 
             result = await sync_service._get_last_sync_date()
             assert result is not None
-            assert result < datetime.now(timezone.utc)
+            assert result < datetime.now(UTC)
 
 
 @pytest.mark.asyncio
@@ -93,7 +96,12 @@ class TestSyncAll:
         sync_service.transformer.transform_ads.return_value = []
         sync_service.transformer.transform_insights.return_value = []
 
-        with patch("app.services.sync_service.AsyncSessionLocal"):
+        with patch("app.services.sync_service.AsyncSessionLocal") as mock_sf:
+            mock_session = MagicMock()
+            mock_session.execute = AsyncMock(return_value=MagicMock(scalar=MagicMock(return_value=True)))
+            mock_session.close = AsyncMock()
+            mock_sf.return_value = mock_session
+
             result = await sync_service.sync_all()
             assert "campaigns" in result
             assert "ad_sets" in result
@@ -111,5 +119,64 @@ class TestSyncAll:
 
         sync_service.meta_api = mock_meta
 
-        with pytest.raises(Exception, match="API Error"):
-            await sync_service.sync_all()
+        with patch("app.services.sync_service.AsyncSessionLocal") as mock_sf:
+            mock_session = MagicMock()
+            mock_session.execute = AsyncMock(return_value=MagicMock(scalar=MagicMock(return_value=True)))
+            mock_session.close = AsyncMock()
+            mock_sf.return_value = mock_session
+
+            with pytest.raises(Exception, match="API Error"):
+                await sync_service.sync_all()
+
+
+@pytest.mark.asyncio
+class TestAdvisoryLock:
+    async def test_lock_acquired_sync_proceeds(self, sync_service):
+        """sync_all proceeds normally when advisory lock is acquired."""
+        mock_meta = MagicMock()
+        mock_meta.fetch_campaigns = _empty_async_gen
+        mock_meta.fetch_ad_sets = _empty_async_gen
+        mock_meta.fetch_ads = _empty_async_gen
+        mock_meta.fetch_insights = _empty_async_gen
+
+        sync_service.meta_api = mock_meta
+        sync_service.mongo_repo = AsyncMock()
+        sync_service.mongo_repo.insert_campaigns.return_value = 0
+        sync_service.mongo_repo.insert_ad_sets.return_value = 0
+        sync_service.mongo_repo.insert_ads.return_value = 0
+        sync_service.mongo_repo.insert_insights.return_value = 0
+        sync_service.postgres_repo = AsyncMock()
+        sync_service.postgres_repo.upsert_campaigns.return_value = 0
+        sync_service.postgres_repo.upsert_ad_sets.return_value = 0
+        sync_service.postgres_repo.upsert_ads.return_value = 0
+        sync_service.postgres_repo.upsert_insights.return_value = 0
+        sync_service.transformer = MagicMock()
+        sync_service.transformer.transform_campaigns.return_value = []
+        sync_service.transformer.transform_ad_sets.return_value = []
+        sync_service.transformer.transform_ads.return_value = []
+        sync_service.transformer.transform_insights.return_value = []
+
+        with patch("app.services.sync_service.AsyncSessionLocal") as mock_sf:
+            mock_session = MagicMock()
+            mock_session.execute = AsyncMock(return_value=MagicMock(scalar=MagicMock(return_value=True)))
+            mock_session.close = AsyncMock()
+            mock_sf.return_value = mock_session
+
+            result = await sync_service.sync_all()
+
+            assert result == {"campaigns": 0, "ad_sets": 0, "ads": 0, "insights": 0}
+            # Verify lock was acquired (pg_try_advisory_lock called) and released
+            assert mock_session.execute.call_count >= 2
+
+    async def test_raises_error_when_lock_not_available(self, sync_service):
+        """sync_all raises SyncAlreadyRunningError when lock is not available."""
+        with patch("app.services.sync_service.AsyncSessionLocal") as mock_sf:
+            mock_session = MagicMock()
+            mock_session.execute = AsyncMock(return_value=MagicMock(scalar=MagicMock(return_value=False)))
+            mock_session.close = AsyncMock()
+            mock_sf.return_value = mock_session
+
+            with pytest.raises(SyncAlreadyRunningError, match="already in progress"):
+                await sync_service.sync_all()
+
+            mock_session.execute.assert_called_once()

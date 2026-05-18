@@ -1,5 +1,4 @@
 import os
-import pytest
 
 # Set environment variables before any imports
 os.environ["META_ACCESS_TOKEN"] = "test_token"

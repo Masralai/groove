@@ -1,8 +1,9 @@
+from datetime import date, datetime
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
-from datetime import datetime, date
+
 from app.repositories.postgres_repository import PostgresRepository
-from app.models.postgres import Campaign, AdSet, Ad, Insight
 
 
 @pytest.fixture
@@ -49,7 +50,7 @@ class TestUpsertCampaigns:
         ]
         count = await repo.upsert_campaigns(mock_db, campaigns)
         assert count == 2
-        assert mock_db.execute.await_count == 2
+        assert mock_db.execute.await_count == 1  # single batch upsert
         mock_db.commit.assert_awaited_once()
 
 

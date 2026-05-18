@@ -1,6 +1,6 @@
-from fastapi.testclient import TestClient
-from unittest.mock import patch
 import os
+
+from fastapi.testclient import TestClient
 
 # Mock environment variables for testing
 os.environ["META_ACCESS_TOKEN"] = "test_token"

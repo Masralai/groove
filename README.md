@@ -12,6 +12,9 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 - [Environment Configuration](#environment-configuration)
 - [Running the Application](#running-the-application)
 - [Testing](#testing)
+- [Prompt Engineering](#prompt-engineering)
+- [Security](#security)
+- [Scaling](#scaling)
 - [Project Status](#project-status)
 - [Future Work](#future-work)
 - [Gotchas & Notes](#gotchas--notes)
@@ -198,6 +201,46 @@ Test suite includes:
 - Unit tests for LLM SQL generation
 - Unit tests for SQL validation
 - Integration tests for full chat flow
+
+## Prompt Engineering
+
+The LLM uses a structured 3-part system prompt for reliable SQL generation:
+
+1. **Role definition**: "You are a Meta Ads data analyst with PostgreSQL access..."
+2. **Schema injection**: Full DDL of all 4 tables (`campaigns`, `ad_sets`, `ads`, `insights`) plus 4 example queries with natural language translations
+3. **Constraints**:
+   - Generate SELECT only (regex block on DDL/DML keywords)
+   - Use column names from schema only
+   - Summarize results in 1-2 sentences with currency formatting
+   - If data doesn't exist, say so honestly
+   - If query is ambiguous, ask for clarification
+
+**Design rationale**: The LLM sees exact column names ensuring valid SQL generation. Few-shot examples demonstrate expected query format and output style. Schema-only injection keeps context small and focused.
+
+## Security
+
+| Risk | Mitigation |
+|------|-----------|
+| Malicious prompts generating dangerous SQL | Pre-execution regex validation blocks all DDL/DML (`DROP`, `DELETE`, `INSERT`, `UPDATE`, `ALTER`, `TRUNCATE`, `EXECUTE`) |
+| SQL injection bypassing validator | Read-only transaction wrapping; PostgreSQL enforces no-write at engine level |
+| Prompt injection overriding instructions | Input sanitization strips instruction injection patterns ("ignore", "forget instructions") |
+| Credential exposure | `.env` in `.gitignore`; production uses environment variables, not checked-in configs |
+| Multi-statement attacks | Reject queries with semicolons in the body (after string-literal stripping) |
+
+**Production recommendation**: Create a dedicated PostgreSQL user with SELECT-only grants on the 4 analytics tables and wire it as `POSTGRES_READONLY_DSN` for the LLM service. See `SECURITY.md` for setup details.
+
+## Scaling
+
+**Current approach**: Schema-only injection (DDL), aggregate queries, pre-computed materials. Full DDL for 4 tables fits well within Gemini context windows.
+
+**Millions-of-rows strategy**:
+- Keyword-based table selection (only inject relevant DDL based on query terms)
+- LLM generates aggregate queries first, then drill-down
+- Pre-computed daily/weekly materialized views
+- Query timeout middleware (30s)
+- Future: vector-store-based table selection for wider schemas
+
+For connection scaling, the backend uses a pool of 20 connections (max overflow 10) with a 10-second pool timeout. The PostgreSQL advisory lock prevents concurrent sync in multi-worker deployments.
 
 ## Gotchas & Notes
 

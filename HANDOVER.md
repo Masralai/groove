@@ -17,8 +17,23 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 | `datetime.utcnow()` replaced | 20 occurrences across 4 files → `datetime.now(timezone.utc)` |
 | Pydantic `class Config` replaced | 2 files → `model_config = ConfigDict(...)` |
 | Renamed: LLM Agent → LLM Service | `LLMAgentService` → `LLMService`, `llm_agent_service.py` → `llm_service.py`, all docs updated |
-| Backend tests: 106 passing | 11 pre-existing failures fixed (LLM agent mocking, MongoDB patching, chat DB override, router wiring) |
-| Frontend test infra | `vitest` + `@testing-library/react` installed, configured, 1 passing test |
+| Backend tests: 106 → 109 passing | 11 pre-existing failures fixed + 3 new advisory lock tests |
+| Frontend test infra + dashboard-utils tests | `vitest` + `@testing-library/react` installed + 15 dashboard-utils unit tests |
+| Advisory lock + 409 conflict | `pg_try_advisory_lock(42)` in `sync_all()`, `SyncAlreadyRunningError` exception, router returns 409 on concurrent sync |
+| Batch upsert (all 4 entities) | `_batch_upsert_sql()` helper generates single multi-row `INSERT ... VALUES (...), (...), ... ON CONFLICT DO UPDATE` |
+| CORS middleware | Added to `main.py` with `CORS_ORIGINS` env var, added to `.env.example` |
+| SECRET_KEY startup warning | `logger.warning` if default dev key detected on startup |
+| `pyproject.toml` + ruff | Build system, deps, dev deps, ruff config, mypy config, pytest config. `ruff check --fix` fixed 508 issues. |
+| Dockerfile hardening (both) | Non-root users (`appuser`/`nodeuser` UID 1001) + `HEALTHCHECK` with `curl` on both backend and frontend |
+| Backend `.dockerignore` | Created — excludes venv, pycache, pytest_cache, .env, etc. |
+| Dashboard helpers extracted | `formatCurrency`, `computeKPIs`, `formatCompact`, `trendChange`, `statusBadgeClass` → `src/lib/dashboard-utils.ts` with 15 unit tests |
+| Design tokens consolidated | `design-tokens.css` deleted, dark vars merged into `globals.css` `@theme` block, `[data-theme="dark"]` toggle selector fixed |
+| EmptyState dedup | Shared `EmptyState` component extended with `variant="chat"`, inline duplicate removed from `chat/page.tsx` |
+| `API_V1_STR` cleanup | Removed unused `/api/v1` prefix from config |
+
+| README sections + SECURITY.md | Added Prompt Engineering, Security, Scaling sections to README.md. Created `SECURITY.md` with read-only DB user setup, CORS config, secret key advice. |
+| CI/CD workflow | `.github/workflows/test.yml` — backend pytest + ruff lint, frontend vitest + build on push/PR to main |
+| `.pre-commit-config.yaml` | Created with ruff (lint+format) + trailing-whitespace, end-of-file-fixer, check-yaml, check-json |
 
 ### LLM Tests Fixed
 
@@ -28,14 +43,6 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 | `tests/test_llm/test_chat_integration.py` | Uses `app.dependency_overrides[get_db]` instead of `patch('app.core.database.get_db')` (FastAPI caches function refs at import time) |
 
 ## Current State
-
-### Documents Written
-
-| File | Contents |
-|------|----------|
-| `PRD.md` | Full product requirements — pipeline, chatbot, architecture, data model, API design, testing, infra, documentation |
-| `DECISIONS.md` | 16 architecture decisions with rationale — MongoDB vs JSONB, incremental sync, PG advisory lock, SQL injection, Alembic, GraphQL rejection, LLM framework choice, etc. |
-| `DESIGN.md` | Frontend design reference — Grafbase-inspired engineering aesthetic adapted for Meta Ads dashboard |
 
 ### Code Written
 
@@ -90,19 +97,6 @@ Production-ready service integrating with the Meta Marketing API to fetch ads da
 - `Dockerfile` for production (multi-stage, standalone output)
 - `.dockerignore` excluding dev artifacts from builds
 - Frontend service in `docker-compose.yml` with build arg for API URL
-
-**Phase 5.5: Bug Fixes + Full-Stack Runnable** - COMPLETED
-
-| Fix | Files | Description |
-|-----|-------|-------------|
-| Runtime bug 1 | `core/config.py` | `settings.meta_ads` now populated from YAML config on module load, with graceful FileNotFoundError fallback |
-| Runtime bug 2 | `models/postgres.py` | Added `UniqueConstraint(ad_id, date)` — without it the `ON CONFLICT` upsert would crash at runtime |
-| Runtime bug 3 | `services/llm_service.py` | DDL in system prompt now matches actual model (TEXT PK instead of SERIAL, date NOT NULL) |
-| Path resolution | `core/config.py` | `load_yaml_config` goes up 4 dir levels (not 3) to find project-root `config/sources.yaml` |
-| Partitioning | `models/postgres.py` | Removed `PARTITION BY RANGE (date)` — PG requires partition columns in all unique constraints, and partitioning is unnecessary at this scale |
-| MongoDB healthcheck | `docker-compose.yml` | Fixed `mongo` → `mongosh` for MongoDB 7 compatibility |
-| `__init__.py` | 9 files | Added to all bare Python packages for proper module resolution |
-| Empty dir | `services/llm/` | Removed (contained no files) |
 
 ## Architecture
 
@@ -166,7 +160,7 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 
 - **Dual DB**: MongoDB for raw staging, PostgreSQL for analytics
 - **Incremental sync**: Time-range filtering, full override via `?full=true`
-- **Concurrency**: PG advisory lock (`pg_try_advisory_xact_lock(42)`)
+- **Concurrency**: PG advisory lock (`pg_try_advisory_lock(42)` — session-level, holds across multiple transactions within sync)
 - **Sync failure**: Exponential backoff + cursor resume
 - **Transaction integrity**: MongoDB-first writes, PG best-effort upsert
 - **Migrations**: Alembic (production standard)
@@ -184,87 +178,27 @@ campaigns_raw, ad_sets_raw, ads_raw, insights_raw
 | `framer-motion-animator` | Polish — Chat message entrance animations, page transitions |
 | `high-end-visual-design` | Polish — Premium animation/refinement pass |
 | `ui-ux-pro-max` | Polish — Accessibility audit, component refinement |
-| `create-readme` | Phase 6 — README.md needs completion with all sections |
-| `supabase-postgres-best-practices` | Query optimization, indexing |
+| `create-readme` | README.md section creation or revision |
+| `supabase-postgres-best-practices` | Query optimization, indexing, advisory lock, batch upsert |
+| `docker-expert` | Dockerfile hardening (HEALTHCHECK, non-root user, .dockerignore, production compose) |
+| `tdd` | Test-first approach for advisory lock, batch upsert, frontend component tests |
+| `improve-codebase-architecture` | Dead code removal, component dedup, dashboard helper extraction |
+| `python-packaging` | `pyproject.toml` setup |
+| `humanizer` | Polish generated README text to sound less AI-written |
+| `github-actions-docs` | CI/CD setup — GitHub Actions workflows for test-on-push |
+| `design-taste-frontend` | CSS architecture fixes (design-tokens.css, dark mode) |
+| `git-commit` | Conventional commit messages with auto type/scope detection |
 
-## Implmentation Plan (TDD Vertical Slices)
+### Frontend
 
-### Phase 1: Project Scaffold + Config - COMPLETED
-
-**Skills:** None required (general scaffolding)
-
-| Order | Test | What it proves |
-|-------|------|---------------|
-| RED | Config YAML loads and validates required fields | ConfigService works |
-| GREEN | Implement ConfigService, config/sources.yaml, .env.example, pyproject.toml | |
-| RED | FastAPI app starts and /health returns OK | App boots |
-| GREEN | main.py, database.py, Dockerfile, docker-compose.yml (postgres, mongodb, backend) | |
-
-### Phase 2: Meta API + Data Sync - COMPLETED
-
-**Skills:** `docker-expert` if optimizing containers, `supabase-postgres-best-practices` for upsert/index design
-
-| Order | Test | What it proves |
-|-------|------|---------------|
-| RED | Meta API fetches campaigns with pagination | MetaAPIService works |
-| GREEN | MetaAPIService with facebook_business SDK, cursor handling, rate-limit backoff | |
-| RED | Raw campaign saves to MongoDB | MongoDB write path works |
-| GREEN | MongoDB write via motor (async driver) | |
-| RED | Transform normalizes raw campaign to typed record | Transform logic correct |
-| GREEN | TransformPipeline with field mapping, type coercion, timestamp parsing | |
-| RED | Upsert to PostgreSQL is idempotent | PostgreSQL write path works |
-| GREEN | SQLAlchemy upsert (ON CONFLICT DO UPDATE) | |
-| RED | POST /api/fetch orchestrates end-to-end | Full sync pipeline |
-| GREEN | DataSyncService + fetch router + sync status table | |
-| RED | Scheduler fires daily sync | APScheduler integration |
-| GREEN | APScheduler in FastAPI lifespan with advisory lock | |
-
-### Phase 3: Read APIs - COMPLETED
-
-**Skills:** `supabase-postgres-best-practices` for query perf
-
-| Order | Test | What it proves |
-|-------|------|---------------|
-| RED | GET /api/campaigns returns data from DB | Read API works |
-| GREEN | data router with filtering (status), pagination | |
-| RED | GET /api/insights with date range + campaign filter | Filtered query works |
-| GREEN | insights endpoint with query params | |
-
-### Phase 4: LLM Service + Chat - COMPLETED
-
-**Skills:** `supabase-postgres-best-practices` for query injection prevention patterns
-
-| Order | Test | What it proves |
-|-------|------|---------------|
-| RED | LLM generates valid SQL from user query | Prompt engineering works |
-| GREEN | LLMService with Gemini client + 3-part system prompt | |
-| RED | SQL validator rejects DDL / multi-statement queries | Security mitigation works |
-| GREEN | SQLValidator with regex + sqlparse + read-only enforcement | |
-| RED | POST /api/chat returns answer | Full chat flow |
-| GREEN | chat router + agent orchestration + error handling (empty, invalid, retry) | |
-| RED | Chat handles empty data / out-of-scope gracefully | Guardrails work |
-| GREEN | Clarification prompting, "can't find data" responses, retry logic | |
-
-### Phase 5: Frontend - COMPLETED
-
-**Skills used:** `ui-ux-pro-max` for component architecture and accessibility; `high-end-visual-design` for premium styling (design system adapted from Grafbase reference)
-
-| Step | Status | What |
-|------|--------|------|
-| 1 | COMPLETED | DESIGN.md adapted for Meta Ads dashboard (`/`) and chat (`/chat`) pages |
-| 2 | COMPLETED | Next.js 16 app with Tailwind v4, TypeScript, App Router implemented |
-| 3 | COMPLETED | Dockerfile for frontend + added to docker-compose.yml (multi-stage standalone build) |
-| 4 | COMPLETED | Dashboard now fetches live data from `/api/campaigns` and `/api/insights`. Chat proxies through Next.js rewrites to backend. Verified end-to-end with full `docker compose up` |
-
-#### Frontend Structure
+#### Structure
 
 ```
 frontend/
 ├── .dockerignore                     # Excludes node_modules, .next, .env.local from builds
 ├── Dockerfile                        # Multi-stage standalone build (ARG API_URL)
 ├── styles/
-│   ├── design-tokens.css            # DESIGN.md reference tokens
-│   └── globals.css                  # Tailwind v4 @theme + custom component classes
+│   └── globals.css                  # Tailwind v4 @theme + custom component classes + dark mode vars
 ├── src/
 │   └── app/
 │       ├── _components/
@@ -331,19 +265,27 @@ frontend/
 
 ## Next Agent Brief
 
-### Integration Bugs Fixed
+### Integration & Runtime Bugs Fixed
 
 | Issue | Root Cause | Fix |
 |-------|-----------|-----|
-| Backend 500 on startup | `alembic_command.upgrade()` called synchronously inside async startup (uses `asyncio.run()` inside `env.py`) | Wrapped in `loop.run_in_executor()` to run in a thread pool |
-| `/api/fetch` 500 | `FastAPI` validates response body against `-> Dict[str, int]` type hint | Changed to `-> Dict[str, Any]` to match actual return shape |
-| Ad set sync fails | `targeting` field is a `Targeting` SDK object, not serializable | Added `_serialize()` + `_prepare_record()` in transform pipeline |
+| Backend 500 on startup | `alembic_command.upgrade()` called synchronously inside async startup | Wrapped in `loop.run_in_executor()` thread pool |
+| `/api/fetch` 500 | FastAPI validates response body against `-> Dict[str, int]` | Changed to `-> Dict[str, Any]` |
+| Ad set sync fails | `targeting` field is a non-serializable `Targeting` SDK object | Added `_serialize()` + `_prepare_record()` in transform pipeline |
 | Ad sync fails | Meta API field is `adset_id` (no underscore), model expects `ad_set_id` | Updated field names in `META_DEFAULT_FIELDS` + pipeline maps both |
 | Campaign date error | `created_time` etc. are ISO strings from API, PG expects `datetime` | Added `_parse_datetime()` in pipeline, converts to offset-naive UTC |
-| Insights API error | `conversion_value` is not a valid insights field in v22.0 | Removed from default fields |
+| Insights API error | `conversion_value` is not a valid field in v22.0 | Removed from default fields |
 | Insights API error | `time_range` param passed as string instead of dict | Pass dict directly |
 | Model unavailable | `gemini-3-flash` not a valid API model name | Changed to `gemini-2.5-flash` |
-| Config file not found | Docker volume mount path mismatch -- code looks for `/config/sources.yaml` but volume mounts to `/app/config` | Added `.get()` fallbacks in `meta_api_service.py` |
+| Config file not found | Docker volume mount path mismatch — code looked for `/config/sources.yaml` but volume mounts to `/app/config` | Added `.get()` fallbacks in `meta_api_service.py` |
+| Config path resolution | `load_yaml_config` went up 3 directory levels instead of 4 | Now goes up 4 dir levels to find project-root `config/sources.yaml` |
+| `settings.meta_ads` empty | Not populated from YAML config on module load | Populated on import with graceful `FileNotFoundError` fallback |
+| Missing `UniqueConstraint` | `insights` model lacked `UNIQUE(ad_id, date)` — `ON CONFLICT` upsert would crash | Added `UniqueConstraint(ad_id, date)` |
+| LLM prompt DDL mismatch | System prompt used `SERIAL` PK and without `NOT NULL` on `date` | Updated DDL to match actual model: `TEXT PK`, `date NOT NULL` |
+| PG partitioning conflict | `PARTITION BY RANGE (date)` on insights — PG requires partition cols in all unique constraints | Removed partitioning (unnecessary at this scale) |
+| MongoDB healthcheck | Docker Compose used `mongo` CLI which doesn't exist in MongoDB 7 | Fixed to `mongosh` |
+| Missing `__init__.py` | 9 bare Python packages lacked `__init__.py` | Added to all packages |
+| Empty directory | `services/llm/` contained no files | Removed |
 
 ### Current Status
 
@@ -353,79 +295,23 @@ frontend/
 - Frontend: landing, dashboard, chat, 404 page all load ✓
 - Dark mode, mobile nav, error boundaries deployed ✓
 - Frontend proxy (`:3000/api/*`) works ✓
-- **106 backend tests passing**, 0 failing ✓
-- **Frontend vitest infra ready**, 1 test passing ✓
+- **109 backend tests passing**, 0 failing ✓
+- **16 frontend tests passing** (1 infra + 15 dashboard-utils) ✓
 - **Deprecation warnings**: 5 remaining (all `on_event` lifespan — intentionally skipped, project concludes in 1 week)
 - **Insights return 0** — `ad_id` field fixed in transform pipeline; remaining issue may be that Meta account has no insight data, or query level/date range needs adjustment
 
 ### What Still Needs Work
 
-Grouped by priority and category:
+Remaining items after this session's completions (CORS, SECRET_KEY, CI/CD, HEALTHCHECK, non-root users, `.dockerignore`, advisory lock, batch upsert, `pyproject.toml`, `API_V1_STR`, ruff, EmptyState dedup, design-tokens deletion, dark mode fix, pre-commit, README sections, SECURITY.md, dashboard helpers):
 
-#### 1. Security
-
-| Issue | Detail | Impact |
-|-------|--------|--------|
-| **No CORS middleware** | `CORSMiddleware` not configured. Next.js proxy works, but any direct API call from browser is blocked | Prevents direct API access from external clients |
-| **`SECRET_KEY` hardcoded default** | `config.py:27`: `"dev-secret-key-change-in-production"` — not overridden in production | Vulnerability if this default is used in production |
-| **No read-only DB user** | DECISIONS.md #11 specifies `llm_agent` role with SELECT-only perms for chat endpoint; never created | Chat LLM could potentially write to DB if SQL injection bypasses validator |
-| **Real credentials in `.env`** | `.env` contains live API tokens. Already in `.gitignore`, but verify `git log --all --diff-filter=A -- .env` that they were never committed | Credential leak via git history |
-
-#### 2. Infrastructure & Deployment
-
-| Issue | Detail | Impact |
-|-------|--------|--------|
-| **No CI/CD** | No GitHub Actions or equivalent for test-on-push | Changes can break tests without detection |
-| **No production deployment configs** | No K8s manifests, Helm charts, Terraform, or `docker-compose.prod.yml` | Can't deploy to production without manual setup |
-| **No HEALTHCHECK in Dockerfiles** | Both backend and frontend containers lack health probes | `depends_on` waits for container start, not app readiness |
-| **Backend runs as root** | Both Dockerfiles should create and use a non-root user | Security best practice violation |
-| **Backend has no `.dockerignore`** | `venv/` and `__pycache__/` get shipped to Docker daemon | Slower builds, unnecessary context transfers |
-
-#### 3. Frontend Tests
-
-| Issue | Detail |
-|-------|--------|
-| **14 components untested** | Only `Home.test.tsx` exists. Missing: `Header.tsx`, `ThemeToggle.tsx`, `dashboard/page.tsx` (344 lines), `chat/page.tsx` (378 lines), `KPICard.tsx`, `EmptyState.tsx`, `LoadingState.tsx`, error boundaries, layouts |
-| **Dashboard helpers not extractable** | `formatCurrency`, `computeKPIs`, `formatCompact`, `trendChange`, `statusBadgeClass` in `dashboard/page.tsx` are module-local — need to be exported to a shared utility for unit testing |
-
-#### 4. Backend Gaps
-
-| Issue | Detail |
-|-------|--------|
-| **Advisory lock not implemented** | PRD Decision #3 specifies `pg_try_advisory_xact_lock(42)` in `sync_all()` to prevent concurrent syncs. Not implemented — two simultaneous `POST /api/fetch` calls could corrupt data |
-| **Row-by-row upsert is slow** | `postgres_repository.py` executes individual `INSERT ... ON CONFLICT` per row. For large datasets (10k+ insights), batch upsert would be far more performant |
-| **No `pyproject.toml`** | PRD scaffold references `pyproject.toml`, only `requirements.txt` exists. Modern Python projects typically use `pyproject.toml` |
-| **`testcontainers` unused** | `testcontainers[postgres,mongodb]` in `requirements.txt` but all tests use mocks — no real DB integration tests |
-| **`API_V1_STR` config unused** | `config.py:11` sets `API_V1_STR = "/api/v1"`, but router is mounted at `/api` in `main.py:67` |
-
-#### 5. Code Quality & Architecture
-
-| Issue | Detail |
-|-------|--------|
-| **No Python linter/formatter** | No `ruff`, `black`, `mypy`, or `flake8` configuration. Frontend has ESLint, backend has nothing |
-| **Two `EmptyState` implementations** | Reusable one in `src/components/EmptyState.tsx` + inline duplicate in `chat/page.tsx` (lines 157-169). Should be unified |
-| **`design-tokens.css` is dead code** | 105 lines of CSS custom properties in `styles/design-tokens.css` — never imported anywhere. Root layout imports `globals.css` only |
-| **Dark mode may be broken** | `globals.css` dark-mode overrides (lines 269-281) reference `--color-dark-*` variables only defined in the unimported `design-tokens.css` |
-| **No `pre-commit` config** | No `.pre-commit-config.yaml` for automated linting/formatting on commits |
-| **Single Alembic migration** | Only `0001_initial.py` exists — any future schema change requires manual migration creation |
-
-#### 6. Documentation
-
-| Issue | Detail |
-|-------|--------|
-| **README missing 3 sections** | Prompt Engineering, Security, and Scaling sections (all required by PRD) are absent from `README.md` |
-| **`SECURITY.md` doesn't exist** | Referenced in DECISIONS.md #11 as the file containing read-only PostgreSQL user setup — never created |
-| **Model name mismatch in README** | `README.md` says "Gemini 3 Flash", but code defaults to `gemini-2.5-flash` (and HANDOVER gotcha #14 confirms 2.5 Flash is the correct stable model) |
-
-### Frontend Polish — COMPLETED
-
-| Item | Files | Description |
-|------|-------|-------------|
-| Error boundaries | `error.tsx`, `chat/error.tsx`, `not-found.tsx` | Global error page + chat-specific error + 404 page, all with retry/home actions |
-| Mobile nav | `_components/Header.tsx` | Converted to client component, hamburger menu with backdrop + slide-down drawer, body scroll lock |
-| Chat mobile | `chat/page.tsx` | Bottom sheet for recent queries (FAB trigger on mobile), backdrop dismiss, preserves desktop sidebar |
-| Touch targets | `dashboard/page.tsx` | Pagination buttons now `min-h-[44px]` for touch accessibility |
-| Dark mode | `styles/design-tokens.css`, `styles/globals.css`, `_components/ThemeToggle.tsx`, `_components/Header.tsx`, `layout.tsx` | CSS custom properties with `[data-theme="dark"]` overrides, system preference detection, localStorage persistence, flash-prevention inline script, sun/moon toggle in header |
+| Priority | Issue | Detail | Suggested Skill |
+|----------|-------|--------|-----------------|
+| **High** | **No production deployment configs** | No K8s manifests, Helm charts, Terraform, or `docker-compose.prod.yml` | `docker-expert` |
+| **High** | **Frontend components untested** | `Header.tsx`, `ThemeToggle.tsx`, `dashboard/page.tsx`, `chat/page.tsx`, `KPICard.tsx`, `EmptyState.tsx`, `LoadingState.tsx`, error boundaries, layouts — all lack tests | `tdd` |
+| **Medium** | **Read-only DB user not plumbed** | SECURITY.md documents the `llm_agent` role setup, but LLM service still uses admin DSN. Chat runs in read-only txn as defense-in-depth | `supabase-postgres-best-practices` |
+| **Medium** | **`testcontainers` unused** | Library in deps, but all tests use mocks — no real DB integration tests | `tdd` |
+| **Low** | **Git audit for `.env`** | Verify `git log --all --diff-filter=A -- .env` that live tokens were never committed | manual |
+| **Low** | **Single Alembic migration** | Fine for current schema, needs manual migration for any future change | manual |
 
 ## Stack
 
@@ -448,43 +334,7 @@ META_AD_ACCOUNT_ID=act_<account-id>
 GEMINI_API_KEY=<google-ai-studio-api-key>
 POSTGRES_DSN=postgresql+asyncpg://groove:groove@postgres:5432/groove
 MONGODB_URI=mongodb://mongodb:27017/groove
-```
-
-## Dependencies
-
-### Python (backend)
-
-```
-fastapi
-uvicorn[standard]
-sqlalchemy[asyncio]
-asyncpg
-motor  # async MongoDB
-facebook-business  # Meta API SDK
-google-genai  # Gemini
-pydantic-settings
-pyyaml
-alembic
-apscheduler
-httpx
-sqlparse  # SQL validation
-pytest
-pytest-asyncio
-testcontainers[postgres,mongodb]
-httpx-mock  # or responses
-```
-
-### Node.js (frontend — see `frontend/package.json`)
-
-```
-next           ^16
-react          ^19
-react-dom      ^19
-@tailwindcss/postcss
-typescript
-tailwindcss
-eslint
-eslint-config-next
+CORS_ORIGINS=http://localhost:3000,http://localhost:8000
 ```
 
 ## Verification

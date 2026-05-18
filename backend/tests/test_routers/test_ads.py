@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
@@ -37,9 +39,9 @@ def test_get_ads_success(mock_get_db, mock_postgres_repo):
         }
     ]
     mock_postgres_repo.get_ads.return_value = mock_ads
-    
+
     response = client.get("/api/ads")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -50,9 +52,9 @@ def test_get_ads_success(mock_get_db, mock_postgres_repo):
 def test_get_ads_with_campaign_filter(mock_get_db, mock_postgres_repo):
     """Test ads retrieval with campaign filter."""
     mock_postgres_repo.get_ads.return_value = []
-    
+
     response = client.get("/api/ads?campaign_id=123")
-    
+
     assert response.status_code == 200
     mock_postgres_repo.get_ads.assert_called_once()
     # Check that campaign_id parameter was passed
@@ -62,9 +64,9 @@ def test_get_ads_with_campaign_filter(mock_get_db, mock_postgres_repo):
 def test_get_ads_pagination(mock_get_db, mock_postgres_repo):
     """Test ads retrieval with pagination."""
     mock_postgres_repo.get_ads.return_value = []
-    
+
     response = client.get("/api/ads?limit=5&offset=0")
-    
+
     assert response.status_code == 200
     mock_postgres_repo.get_ads.assert_called_once()
     # Check that limit and offset parameters were passed

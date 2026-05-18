@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
@@ -44,9 +46,9 @@ def test_get_insights_success(mock_get_db, mock_postgres_repo):
         }
     ]
     mock_postgres_repo.get_insights.return_value = mock_insights
-    
+
     response = client.get("/api/insights")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -57,9 +59,9 @@ def test_get_insights_success(mock_get_db, mock_postgres_repo):
 def test_get_insights_with_date_filters(mock_get_db, mock_postgres_repo):
     """Test insights retrieval with date filters."""
     mock_postgres_repo.get_insights.return_value = []
-    
+
     response = client.get("/api/insights?date_from=2023-06-01&date_to=2023-06-30")
-    
+
     assert response.status_code == 200
     mock_postgres_repo.get_insights.assert_called_once()
     # Check that date parameters were passed
@@ -70,9 +72,9 @@ def test_get_insights_with_date_filters(mock_get_db, mock_postgres_repo):
 def test_get_insights_with_campaign_filter(mock_get_db, mock_postgres_repo):
     """Test insights retrieval with campaign filter."""
     mock_postgres_repo.get_insights.return_value = []
-    
+
     response = client.get("/api/insights?campaign_id=123")
-    
+
     assert response.status_code == 200
     mock_postgres_repo.get_insights.assert_called_once()
     # Check that campaign_id parameter was passed
@@ -82,9 +84,9 @@ def test_get_insights_with_campaign_filter(mock_get_db, mock_postgres_repo):
 def test_get_insights_pagination(mock_get_db, mock_postgres_repo):
     """Test insights retrieval with pagination."""
     mock_postgres_repo.get_insights.return_value = []
-    
+
     response = client.get("/api/insights?limit=10&offset=5")
-    
+
     assert response.status_code == 200
     mock_postgres_repo.get_insights.assert_called_once()
     # Check that limit and offset parameters were passed

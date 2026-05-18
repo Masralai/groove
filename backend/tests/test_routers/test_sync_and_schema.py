@@ -1,7 +1,10 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
+
 from app.main import app
+from app.services.sync_service import SyncAlreadyRunningError
 
 client = TestClient(app)
 
@@ -49,6 +52,15 @@ class TestSyncEndpoints:
 
         assert response.status_code == 500
         assert "Sync failed" in response.json()["detail"]
+
+    def test_trigger_sync_conflict_when_already_running(self, mock_sync_service):
+        """POST /api/fetch returns 409 when sync is already in progress."""
+        mock_sync_service.sync_all.side_effect = SyncAlreadyRunningError()
+
+        response = client.post("/api/fetch")
+
+        assert response.status_code == 409
+        assert "already in progress" in response.json()["detail"].lower()
 
     def test_get_sync_status(self):
         """GET /api/fetch/status returns sync status."""

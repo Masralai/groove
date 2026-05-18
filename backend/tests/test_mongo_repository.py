@@ -1,7 +1,9 @@
 import os
-import pytest
 from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from app.repositories.mongo_repository import MongoRepository
 
 # Mock environment variables for testing
@@ -52,14 +54,14 @@ async def test_insert_campaigns(mongo_repository, mock_mongo_client):
         {'id': '2', 'name': 'Campaign 2', 'status': 'PAUSED'},
         {'id': '3', 'name': 'Campaign 3', 'status': 'ACTIVE'}
     ]
-    
+
     # Act
     result = await mongo_repository.insert_campaigns(test_campaigns)
-    
+
     # Assert
     assert result == 3
     mock_mongo_client['campaigns'].insert_many.assert_called_once()
-    
+
     # Check that _stored_at field was added
     call_args = mock_mongo_client['campaigns'].insert_many.call_args[0][0]
     assert len(call_args) == 3
@@ -75,14 +77,14 @@ async def test_insert_ad_sets(mongo_repository, mock_mongo_client):
         {'id': '1', 'name': 'Ad Set 1', 'status': 'ACTIVE', 'campaign_id': '1'},
         {'id': '2', 'name': 'Ad Set 2', 'status': 'PAUSED', 'campaign_id': '1'}
     ]
-    
+
     # Act
     result = await mongo_repository.insert_ad_sets(test_ad_sets)
-    
+
     # Assert
     assert result == 2
     mock_mongo_client['ad_sets'].insert_many.assert_called_once()
-    
+
     # Check that _stored_at field was added
     call_args = mock_mongo_client['ad_sets'].insert_many.call_args[0][0]
     assert len(call_args) == 2
@@ -98,14 +100,14 @@ async def test_insert_ads(mongo_repository, mock_mongo_client):
         {'id': '1', 'name': 'Ad 1', 'status': 'ACTIVE', 'ad_set_id': '1'},
         {'id': '2', 'name': 'Ad 2', 'status': 'PAUSED', 'ad_set_id': '1'}
     ]
-    
+
     # Act
     result = await mongo_repository.insert_ads(test_ads)
-    
+
     # Assert
     assert result == 2
     mock_mongo_client['ads'].insert_many.assert_called_once()
-    
+
     # Check that _stored_at field was added
     call_args = mock_mongo_client['ads'].insert_many.call_args[0][0]
     assert len(call_args) == 2
@@ -121,14 +123,14 @@ async def test_insert_insights(mongo_repository, mock_mongo_client):
         {'id': '1', 'impressions': 100, 'clicks': 10, 'spend': 5.0},
         {'id': '2', 'impressions': 200, 'clicks': 20, 'spend': 10.0}
     ]
-    
+
     # Act
     result = await mongo_repository.insert_insights(test_insights)
-    
+
     # Assert
     assert result == 2
     mock_mongo_client['insights'].insert_many.assert_called_once()
-    
+
     # Check that _stored_at field was added
     call_args = mock_mongo_client['insights'].insert_many.call_args[0][0]
     assert len(call_args) == 2
@@ -144,13 +146,13 @@ async def test_insert_empty_lists(mongo_repository, mock_mongo_client):
     result_ad_sets = await mongo_repository.insert_ad_sets([])
     result_ads = await mongo_repository.insert_ads([])
     result_insights = await mongo_repository.insert_insights([])
-    
+
     # Assert
     assert result_campaigns == 0
     assert result_ad_sets == 0
     assert result_ads == 0
     assert result_insights == 0
-    
+
     # Verify insert_many was not called
     mock_mongo_client['campaigns'].insert_many.assert_not_called()
     mock_mongo_client['ad_sets'].insert_many.assert_not_called()

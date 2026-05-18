@@ -1,5 +1,5 @@
-import pytest
 from app.services.validation.sql_validator import sql_validator
+
 
 def test_valid_select_query():
     """Test that valid SELECT queries pass validation."""
@@ -10,7 +10,7 @@ def test_valid_select_query():
         "WITH cte AS (SELECT * FROM campaigns) SELECT * FROM cte",
         "SELECT * FROM insights LIMIT 10"
     ]
-    
+
     for query in valid_queries:
         is_valid, error = sql_validator.validate_sql(query)
         assert is_valid is True, f"Query should be valid: {query}"
@@ -27,7 +27,7 @@ def test_invalid_ddl_queries():
         "CREATE TABLE test (id TEXT)",
         "TRUNCATE TABLE campaigns"
     ]
-    
+
     for query in invalid_queries:
         is_valid, error = sql_validator.validate_sql(query)
         assert is_valid is False, f"Query should be invalid: {query}"
@@ -41,7 +41,7 @@ def test_invalid_system_table_access():
         "SELECT * FROM pg_catalog.pg_user",
         "SELECT * FROM sqlite_master"
     ]
-    
+
     for query in invalid_queries:
         is_valid, error = sql_validator.validate_sql(query)
         assert is_valid is False, f"Query should be invalid: {query}"
@@ -54,7 +54,7 @@ def test_multistatement_queries():
         "SELECT * FROM campaigns; DELETE FROM insights",
         "WITH cte AS (SELECT * FROM campaigns) SELECT * FROM cte; SELECT * FROM ad_sets"
     ]
-    
+
     for query in invalid_queries:
         is_valid, error = sql_validator.validate_sql(query)
         assert is_valid is False, f"Query should be invalid: {query}"
@@ -68,7 +68,7 @@ def test_non_select_queries():
         "EXPLAIN SELECT * FROM campaigns",
         "CALL some_procedure()"
     ]
-    
+
     for query in invalid_queries:
         is_valid, error = sql_validator.validate_sql(query)
         assert is_valid is False, f"Query should be invalid: {query}"
@@ -82,7 +82,7 @@ def test_empty_and_whitespace_queries():
         "\n\t\n",
         ";"
     ]
-    
+
     for query in invalid_queries:
         is_valid, error = sql_validator.validate_sql(query)
         assert is_valid is False, f"Query should be invalid: '{query}'"
@@ -95,7 +95,7 @@ def test_comment_handling():
         "SELECT * FROM campaigns /* this is a */ comment */",
         "SELECT * FROM campaigns -- comment\nWHERE status = 'active'"
     ]
-    
+
     for query in valid_queries:
         is_valid, error = sql_validator.validate_sql(query)
         assert is_valid is True, f"Query should be valid: {query}"
@@ -111,7 +111,7 @@ def test_sanitize_error_message():
         'ERROR: [SECRET_INFO] something sensitive',
         'ERROR: "quoted string with secrets" and more'
     ]
-    
+
     for error in test_errors:
         sanitized = sql_validator.sanitize_error_message(error)
         # Should not contain the original sensitive information

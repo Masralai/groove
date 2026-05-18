@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
@@ -40,9 +42,9 @@ def test_get_campaigns_success(mock_get_db, mock_postgres_repo):
         }
     ]
     mock_postgres_repo.get_campaigns.return_value = mock_campaigns
-    
+
     response = client.get("/api/campaigns")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -53,9 +55,9 @@ def test_get_campaigns_success(mock_get_db, mock_postgres_repo):
 def test_get_campaigns_with_status_filter(mock_get_db, mock_postgres_repo):
     """Test campaigns retrieval with status filter."""
     mock_postgres_repo.get_campaigns.return_value = []
-    
+
     response = client.get("/api/campaigns?status=ACTIVE")
-    
+
     assert response.status_code == 200
     mock_postgres_repo.get_campaigns.assert_called_once()
     # Check that status parameter was passed
@@ -65,9 +67,9 @@ def test_get_campaigns_with_status_filter(mock_get_db, mock_postgres_repo):
 def test_get_campaigns_pagination(mock_get_db, mock_postgres_repo):
     """Test campaigns retrieval with pagination."""
     mock_postgres_repo.get_campaigns.return_value = []
-    
+
     response = client.get("/api/campaigns?limit=10&offset=20")
-    
+
     assert response.status_code == 200
     mock_postgres_repo.get_campaigns.assert_called_once()
     # Check that limit and offset parameters were passed
