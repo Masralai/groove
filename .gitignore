@@ -15,6 +15,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/src/lib/
 lib64/
 parts/
 sdist/
@@ -51,7 +52,7 @@ coverage.xml
 
 # Environments
 .env
-.venv
+.venv*
 env/
 venv/
 ENV/

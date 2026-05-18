@@ -75,7 +75,7 @@ def test_chat_endpoint_success(mock_db_session, mock_llm_service, mock_sql_valid
 def test_chat_endpoint_empty_query():
     response = client.post("/api/chat", json={"query": ""})
     assert response.status_code == 400
-    assert "Query cannot be empty" in response.json()["detail"]
+    assert "Please enter a question before submitting." in response.json()["message"]
 
 def test_chat_endpoint_sql_generation_failure(mock_db_session, mock_llm_service):
     mock_llm_service.generate_sql = AsyncMock(return_value={
@@ -86,7 +86,7 @@ def test_chat_endpoint_sql_generation_failure(mock_db_session, mock_llm_service)
 
     response = client.post("/api/chat", json={"query": "Invalid question"})
     assert response.status_code == 400
-    assert "I couldn't generate a valid query" in response.json()["detail"]
+    assert "I couldn't generate a valid query" in response.json()["message"]
 
 def test_chat_endpoint_sql_validation_failure(
     mock_db_session, mock_llm_service, mock_sql_validator
@@ -100,7 +100,7 @@ def test_chat_endpoint_sql_validation_failure(
 
     response = client.post("/api/chat", json={"query": "Delete all campaigns"})
     assert response.status_code == 400
-    assert "I couldn't generate a valid query after multiple attempts" in response.json()["detail"]
+    assert "I couldn't generate a valid query after multiple attempts" in response.json()["message"]
 
 def test_chat_endpoint_sql_execution_failure(mock_db_session, mock_llm_service, mock_sql_validator):
     mock_llm_service.generate_sql = AsyncMock(side_effect=[
@@ -115,7 +115,7 @@ def test_chat_endpoint_sql_execution_failure(mock_db_session, mock_llm_service, 
 
     response = client.post("/api/chat", json={"query": "Show me nonexistent data"})
     assert response.status_code == 400
-    assert "I couldn't execute a valid query" in response.json()["detail"]
+    assert "I couldn't execute a valid query" in response.json()["message"]
 
 def test_chat_endpoint_no_data_found(mock_db_session, mock_llm_service, mock_sql_validator):
     mock_llm_service.generate_sql = AsyncMock(return_value={

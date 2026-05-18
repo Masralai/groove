@@ -51,7 +51,7 @@ class TestSyncEndpoints:
         response = client.post("/api/fetch")
 
         assert response.status_code == 500
-        assert "Sync failed" in response.json()["detail"]
+        assert "Sync failed" in response.json()["message"]
 
     def test_trigger_sync_conflict_when_already_running(self, mock_sync_service):
         """POST /api/fetch returns 409 when sync is already in progress."""
@@ -60,7 +60,7 @@ class TestSyncEndpoints:
         response = client.post("/api/fetch")
 
         assert response.status_code == 409
-        assert "already in progress" in response.json()["detail"].lower()
+        assert "already in progress" in response.json()["message"].lower()
 
     def test_get_sync_status(self):
         """GET /api/fetch/status returns sync status."""

@@ -1,25 +1,18 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from app.services.llm_service import llm_service
 
 
-@pytest.fixture
-def mock_gemini_response():
-    """Mock Gemini API response."""
-    mock_response = MagicMock()
-    mock_response.text = "```sql\nSELECT * FROM campaigns LIMIT 10;\n```"
-    return mock_response
-
-
 @pytest.mark.asyncio
-async def test_generate_sql_success(mock_gemini_response):
+async def test_generate_sql_success():
     """Test successful SQL generation."""
-    with patch.object(
-        llm_service.client.models, 'generate_content'
-    ) as mock_generate:
-        mock_generate.return_value = mock_gemini_response
+    with patch.object(llm_service, '_call_llm') as mock_call:
+        mock_call.return_value = {
+            "success": True,
+            "text": "```sql\nSELECT * FROM campaigns LIMIT 10;\n```"
+        }
 
         result = await llm_service.generate_sql("Show me all campaigns")
 
@@ -31,16 +24,16 @@ async def test_generate_sql_success(mock_gemini_response):
 @pytest.mark.asyncio
 async def test_generate_sql_failure():
     """Test SQL generation failure."""
-    with patch.object(
-        llm_service.client.models, 'generate_content'
-    ) as mock_generate:
-        mock_generate.side_effect = Exception("API Error")
+    with patch.object(llm_service, '_call_llm') as mock_call:
+        mock_call.return_value = {
+            "success": False,
+            "error": "API Error"
+        }
 
-        result = await llm_service.generate_sql("Show me all campaigns")
+        result = await llm_service.generate_sql("Show me all campaigns - failure test")
 
         assert result["success"] is False
-        assert result["sql"] == ""
-        assert "Failed to generate SQL" in result["error"]
+        assert result["error"] == "API Error"
 
 
 @pytest.mark.asyncio
@@ -51,12 +44,11 @@ async def test_summarize_results_with_data():
         {"date": "2023-01-02", "spend": 150.25, "clicks": 75}
     ]
 
-    with patch.object(
-        llm_service.client.models, 'generate_content'
-    ) as mock_generate:
-        mock_response = MagicMock()
-        mock_response.text = "The data shows increasing spend over the two days."
-        mock_generate.return_value = mock_response
+    with patch.object(llm_service, '_call_llm') as mock_call:
+        mock_call.return_value = {
+            "success": True,
+            "text": "The data shows increasing spend over the two days."
+        }
 
         result = await llm_service.summarize_results(
             "What was our spend trend?",
