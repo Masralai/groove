@@ -7,5 +7,5 @@ meta_ads:
     campaigns: [id, name, status, objective, daily_budget, lifetime_budget, created_time, start_time, stop_time]
     ad_sets: [id, name, campaign_id, status, daily_budget, lifetime_budget, targeting, bid_strategy, created_time]
     ads: [id, name, adset_id, status, creative, created_time]
-    insights: [impressions, clicks, spend, reach, frequency, ctr, cpc, cpm, conversions, conversion_value]
+    insights: [ad_id, impressions, clicks, spend, reach, frequency, ctr, cpc, cpm, conversions, conversion_value, date_start]
   insights_time_range_days: 30

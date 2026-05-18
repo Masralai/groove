@@ -37,13 +37,20 @@ class Settings(BaseSettings):
 
 def load_yaml_config(path: str) -> dict[str, Any]:
     """Load YAML configuration file."""
-    config_path = Path(path)
-    if not config_path.is_absolute():
-        # Make path relative to project root (4 levels up from core/config.py)
-        config_path = Path(__file__).parent.parent.parent.parent / path
-    
-    with open(config_path, 'r') as f:
-        return yaml.safe_load(f)
+    candidates = []
+    if Path(path).is_absolute():
+        candidates.append(Path(path))
+    else:
+        candidates.append(Path(__file__).parent.parent.parent.parent / path)
+        candidates.append(Path(__file__).parent.parent.parent / "config" / Path(path).name)
+        candidates.append(Path("/app") / path)
+
+    for config_path in candidates:
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                return yaml.safe_load(f)
+
+    raise FileNotFoundError(f"Config file not found. Tried: {candidates}")
 
 settings = Settings()
 try:
