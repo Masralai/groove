@@ -15,9 +15,10 @@ class Settings(BaseSettings):
     META_ACCESS_TOKEN: str
     META_AD_ACCOUNT_ID: str
 
-    # Gemini/LLM Settings
-    GEMINI_API_KEY: str
-    GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
+    # LLM Settings (OpenRouter)
+    OPENROUTER_API_KEY: str
+    OPENROUTER_MODEL: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
     # Database Settings
     POSTGRES_DSN: PostgresDsn
@@ -27,11 +28,18 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-key-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
 
+    # CORS
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8000,http://frontend:3000"
+
     # Configuration
     CONFIG_FILE_PATH: str = "config/sources.yaml"
+    LOG_LEVEL: str = "INFO"
     meta_ads: dict[str, Any] = {}
 
-    model_config = ConfigDict(case_sensitive=True, env_file=".env")
+    model_config = ConfigDict(
+        case_sensitive=True,
+        env_file=str(Path(__file__).resolve().parent.parent.parent.parent / ".env")
+    )
 
 def load_yaml_config(path: str) -> dict[str, Any]:
     """Load YAML configuration file."""

@@ -26,10 +26,10 @@ class SQLValidator:
     def validate_sql(cls, sql: str) -> tuple[bool, str | None]:
         """
         Validate SQL query with multiple layers of protection.
-        
+
         Args:
             sql: The SQL query to validate
-            
+
         Returns:
             Tuple of (is_valid, error_message)
         """
@@ -107,17 +107,19 @@ class SQLValidator:
     def sanitize_error_message(cls, error: str) -> str:
         """
         Sanitize error messages to prevent information leakage.
-        
+
         Args:
             error: Raw error message from database
-            
+
         Returns:
             Sanitized error message safe to show to users/LLM
         """
         # Remove potential sensitive information
         sanitized = re.sub(r'\[.*?\]', '[REDACTED]', error)  # Remove bracketed info
         sanitized = re.sub(r'\"[^\"]*\"', '\"[REDACTED]\"', sanitized)  # Remove quoted strings
-        sanitized = re.sub(r'\'[^\']*\'', '\'[REDACTED]\'', sanitized)  # Remove single-quoted strings
+        sanitized = re.sub(
+            r'\'[^\']*\'', '\'[REDACTED]\'', sanitized
+        )  # Remove single-quoted strings
 
         # Limit length
         if len(sanitized) > 200:

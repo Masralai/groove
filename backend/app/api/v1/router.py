@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +14,27 @@ from app.services.sync_service import SyncAlreadyRunningError, data_sync_service
 from app.services.validation.sql_validator import sql_validator
 
 logger = logging.getLogger(__name__)
+
+
+def _quota_response(retry_after: int, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        headers={"Retry-After": str(retry_after)},
+        content={
+            "error": "quota_exceeded",
+            "message": message,
+            "retry_after": retry_after,
+        },
+    )
+
+
+def _check_quota(result: dict) -> JSONResponse | None:
+    if result.get("error_type") == "quota_exceeded":
+        return _quota_response(
+            retry_after=result.get("retry_after", 60),
+            message=result["error"],
+        )
+    return None
 
 api_router = APIRouter()
 
@@ -114,7 +136,14 @@ async def get_insights(
         )
         return insights
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch insights: {str(e)}")
+        logger.error(f"Failed to fetch insights: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "internal_error",
+                "message": "Failed to load insight data. Please try again later."
+            }
+        )
 
 # Chat endpoint - Phase 4
 @api_router.post("/chat")
@@ -124,14 +153,20 @@ async def chat_with_data(
 ):
     """
     Handle natural language queries about ads data.
-    
+
     Expected input: {"query": "Your question here"}
     Returns: {"answer": str, "sql": str, "data": List[Dict]}
     """
     user_query = query.get("query", "").strip()
 
     if not user_query:
-        raise HTTPException(status_code=400, detail="Query cannot be empty")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "empty_query",
+                "message": "Please enter a question before submitting."
+            }
+        )
 
     try:
         # Step 1: Generate SQL from natural language
@@ -140,9 +175,15 @@ async def chat_with_data(
 
         if not sql_result["success"]:
             logger.error(f"SQL generation failed: {sql_result['error']}")
-            raise HTTPException(
+            quota_resp = _check_quota(sql_result)
+            if quota_resp:
+                return quota_resp
+            return JSONResponse(
                 status_code=400,
-                detail=f"I couldn't generate a valid query. {sql_result['error']}"
+                content={
+                    "error": "sql_generation_failed",
+                    "message": f"I couldn't generate a valid query. {sql_result['error']}"
+                }
             )
 
         generated_sql = sql_result["sql"]
@@ -154,15 +195,26 @@ async def chat_with_data(
             logger.warning(f"SQL validation failed: {validation_error}")
             # Try to regenerate with error context
             logger.info("Attempting to regenerate SQL with error context")
-            retry_result = await llm_service.generate_sql(
-                f"{user_query}\n\nPrevious attempt failed validation: {validation_error}. Please correct the SQL."
+            retry_prompt = (
+                f"{user_query}\n\nPrevious attempt failed validation: "
+                f"{validation_error}. Please correct the SQL."
             )
+            retry_result = await llm_service.generate_sql(retry_prompt)
 
             if not retry_result["success"]:
                 logger.error(f"SQL regeneration failed: {retry_result['error']}")
-                raise HTTPException(
+                quota_resp = _check_quota(retry_result)
+                if quota_resp:
+                    return quota_resp
+                return JSONResponse(
                     status_code=400,
-                    detail="I couldn't generate a valid query after multiple attempts. Try rephrasing your question."
+                    content={
+                        "error": "sql_validation_failed",
+                        "message": (
+                            "I couldn't generate a valid query after multiple attempts. "
+                            "Try rephrasing your question."
+                        )
+                    }
                 )
 
             generated_sql = retry_result["sql"]
@@ -172,9 +224,15 @@ async def chat_with_data(
             is_valid, validation_error = sql_validator.validate_sql(generated_sql)
             if not is_valid:
                 logger.error(f"SQL validation failed on retry: {validation_error}")
-                raise HTTPException(
+                return JSONResponse(
                     status_code=400,
-                    detail="I couldn't generate a valid query that passes security checks. Try rephrasing your question."
+                    content={
+                        "error": "sql_validation_failed",
+                        "message": (
+                            "I couldn't generate a valid query that passes security checks. "
+                            "Try rephrasing your question."
+                        )
+                    }
                 )
 
         # Step 3: Execute the SQL query
@@ -197,9 +255,12 @@ async def chat_with_data(
 
             # Try to get LLM to fix the SQL
             logger.info("Attempting to auto-repair SQL with error context")
-            repair_result = await llm_service.generate_sql(
-                f"The previous SQL query failed with error: {sanitized_error}\n\nOriginal question: {user_query}\n\nPlease generate a corrected SQL query."
+            repair_prompt = (
+                "The previous SQL query failed with error:"
+                f" {sanitized_error}\n\nOriginal question:"
+                f" {user_query}\n\nPlease generate a corrected SQL query."
             )
+            repair_result = await llm_service.generate_sql(repair_prompt)
 
             if repair_result["success"]:
                 # Validate the repaired SQL
@@ -212,24 +273,47 @@ async def chat_with_data(
                         rows = result.fetchall()
                         query_results = [dict(zip(columns, row)) for row in rows]
                         generated_sql = repair_result["sql"]  # Use the repaired SQL
-                        logger.info(f"Repaired SQL executed successfully, returned {len(query_results)} rows")
+                        logger.info(
+                            "Repaired SQL executed successfully, returned"
+                            f" {len(query_results)} rows"
+                        )
                     except Exception as retry_e:
                         logger.error(f"Repaired SQL also failed: {str(retry_e)}")
-                        raise HTTPException(
+                        return JSONResponse(
                             status_code=400,
-                            detail="I couldn't execute a valid query. The data might not exist for your question or there may be a technical issue."
+                            content={
+                                "error": "sql_execution_failed",
+                                "message": (
+                                    "I couldn't execute a valid query. The data might not"
+                                    " exist for your question or there may be a technical issue."
+                                )
+                            }
                         )
                 else:
                     logger.error(f"Repaired SQL failed validation: {validation_error}")
-                    raise HTTPException(
+                    return JSONResponse(
                         status_code=400,
-                        detail="I couldn't generate a valid query after attempting to fix the error. Try rephrasing your question."
+                        content={
+                            "error": "sql_validation_failed",
+                            "message": (
+                                "I couldn't generate a valid query after attempting to"
+                                " fix the error. Try rephrasing your question."
+                            )
+                        }
                     )
             else:
                 logger.error(f"Failed to generate repair SQL: {repair_result['error']}")
-                raise HTTPException(
+                quota_resp = _check_quota(repair_result)
+                if quota_resp:
+                    return quota_resp
+                return JSONResponse(
                     status_code=400,
-                    detail="I couldn't generate a valid query. Try rephrasing your question."
+                    content={
+                        "error": "sql_repair_failed",
+                        "message": (
+                            "I couldn't generate a valid query. Try rephrasing your question."
+                        )
+                    }
                 )
 
         # Step 4: Summarize the results
@@ -242,9 +326,14 @@ async def chat_with_data(
             logger.warning(f"Summary generation failed: {summary_result['error']}")
             # Provide a basic summary if LLM fails
             if not query_results:
-                summary = "No data found for your query. Try a different date range or campaign."
+                summary = (
+                    "No data found for your query. Try a different date range or campaign."
+                )
             else:
-                summary = f"Found {len(query_results)} results. Please see the data below for details."
+                summary = (
+                    f"Found {len(query_results)} results. Please see the data below"
+                    " for details."
+                )
         else:
             summary = summary_result["summary"]
 
@@ -256,11 +345,16 @@ async def chat_with_data(
         }
 
     except HTTPException:
-        # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        logger.error(f"Unexpected error in chat endpoint: {str(e)}")
-        raise HTTPException(
+        logger.exception(f"Unexpected error in chat endpoint: {str(e)}")
+        return JSONResponse(
             status_code=500,
-            detail="An unexpected error occurred while processing your question. Please try again."
+            content={
+                "error": "internal_error",
+                "message": (
+                    "An unexpected error occurred while processing your question."
+                    " Please try again."
+                )
+            }
         )

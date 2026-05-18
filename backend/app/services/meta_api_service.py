@@ -14,11 +14,20 @@ _thread_pool = ThreadPoolExecutor(max_workers=4)
 
 logger = logging.getLogger(__name__)
 
-META_DEFAULT_FIELDS = {
-    'campaigns': ['id', 'name', 'status', 'objective', 'daily_budget', 'lifetime_budget', 'created_time', 'start_time', 'stop_time'],
-    'ad_sets': ['id', 'name', 'campaign_id', 'status', 'daily_budget', 'lifetime_budget', 'targeting', 'bid_strategy', 'created_time'],
+META_DEFAULT_FIELDS: dict[str, list[str]] = {
+    'campaigns': [
+        'id', 'name', 'status', 'objective', 'daily_budget',
+        'lifetime_budget', 'created_time', 'start_time', 'stop_time',
+    ],
+    'ad_sets': [
+        'id', 'name', 'campaign_id', 'status', 'daily_budget',
+        'lifetime_budget', 'targeting', 'bid_strategy', 'created_time',
+    ],
     'ads': ['id', 'name', 'adset_id', 'status', 'creative', 'created_time'],
-    'insights': ['ad_id', 'impressions', 'clicks', 'spend', 'reach', 'frequency', 'ctr', 'cpc', 'cpm', 'conversions', 'date_start'],
+    'insights': [
+        'ad_id', 'impressions', 'clicks', 'spend', 'reach', 'frequency',
+        'ctr', 'cpc', 'cpm', 'conversions', 'date_start',
+    ],
 }
 
 class MetaAPIService:
@@ -29,7 +38,8 @@ class MetaAPIService:
         self.ad_account = None
 
     def _meta_config(self, key: str, default: str | list[str] | dict | None = None):
-        return settings.meta_ads.get(key, default) if isinstance(settings.meta_ads, dict) else default
+        meta = settings.meta_ads if isinstance(settings.meta_ads, dict) else {}
+        return meta.get(key, default)
 
     async def initialize(self):
         """Initialize the Facebook Ads API."""
@@ -55,7 +65,9 @@ class MetaAPIService:
         await self.initialize()
 
         if fields is None:
-            fields = self._meta_config('fields', {}).get('campaigns', META_DEFAULT_FIELDS['campaigns'])
+            fields = self._meta_config(
+                'fields', {}
+            ).get('campaigns', META_DEFAULT_FIELDS['campaigns'])
 
         params = {
             'limit': 100
@@ -195,7 +207,9 @@ class MetaAPIService:
         await self.initialize()
 
         if fields is None:
-            fields = self._meta_config('fields', {}).get('insights', META_DEFAULT_FIELDS['insights'])
+            fields = self._meta_config(
+                'fields', {}
+            ).get('insights', META_DEFAULT_FIELDS['insights'])
 
         params = {
             'limit': 100,

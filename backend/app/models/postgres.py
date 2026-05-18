@@ -7,6 +7,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
 
 
+def _utcnow():
+    return datetime.now(UTC)
+
+
 class Campaign(Base):
     __tablename__ = "campaigns"
 
@@ -20,13 +24,14 @@ class Campaign(Base):
     start_time = Column(DateTime)
     stop_time = Column(DateTime)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
 
 class AdSet(Base):
     __tablename__ = "ad_sets"
 
     id = Column(Text, primary_key=True)
-    campaign_id = Column(Text, nullable=False)  # Foreign key to campaigns.id
+    campaign_id = Column(Text, nullable=False)
     name = Column(Text)
     status = Column(Text)
     daily_budget = Column(Numeric)
@@ -34,26 +39,28 @@ class AdSet(Base):
     targeting = Column(JSONB)
     bid_strategy = Column(Text)
     created_time = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
 
 class Ad(Base):
     __tablename__ = "ads"
 
     id = Column(Text, primary_key=True)
-    ad_set_id = Column(Text, nullable=False)  # Foreign key to ad_sets.id
+    ad_set_id = Column(Text, nullable=False)
     name = Column(Text)
     status = Column(Text)
     creative = Column(JSONB)
     created_time = Column(DateTime)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
 
 class Insight(Base):
     __tablename__ = "insights"
 
     id = Column(Text, primary_key=True, default=lambda: str(uuid.uuid4()))
-    ad_id = Column(Text, nullable=False)  # Foreign key to ads.id
+    ad_id = Column(Text, nullable=False)
     date = Column(Date, nullable=False)
     impressions = Column(Integer)
     clicks = Column(Integer)
@@ -65,8 +72,8 @@ class Insight(Base):
     cpm = Column(Numeric)
     conversions = Column(Integer)
     conversion_value = Column(Numeric)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (
         UniqueConstraint('ad_id', 'date', name='uq_insights_ad_id_date'),

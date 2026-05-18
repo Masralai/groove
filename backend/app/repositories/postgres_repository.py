@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select, text
@@ -143,9 +144,15 @@ class PostgresRepository:
                 "name": campaign.name,
                 "status": campaign.status,
                 "objective": campaign.objective,
-                "daily_budget": float(campaign.daily_budget) if campaign.daily_budget else None,
-                "lifetime_budget": float(campaign.lifetime_budget) if campaign.lifetime_budget else None,
-                "created_time": campaign.created_time.isoformat() if campaign.created_time else None,
+                "daily_budget": (
+                    float(campaign.daily_budget) if campaign.daily_budget else None
+                ),
+                "lifetime_budget": (
+                    float(campaign.lifetime_budget) if campaign.lifetime_budget else None
+                ),
+                "created_time": (
+                    campaign.created_time.isoformat() if campaign.created_time else None
+                ),
                 "start_time": campaign.start_time.isoformat() if campaign.start_time else None,
                 "stop_time": campaign.stop_time.isoformat() if campaign.stop_time else None,
                 "created_at": campaign.created_at.isoformat() if campaign.created_at else None,
@@ -167,7 +174,9 @@ class PostgresRepository:
 
         if campaign_id:
             # Join with ad_sets to filter by campaign_id
-            query = query.join(AdSet, Ad.ad_set_id == AdSet.id).where(AdSet.campaign_id == campaign_id)
+            query = query.join(AdSet, Ad.ad_set_id == AdSet.id).where(
+                AdSet.campaign_id == campaign_id
+            )
 
         if status:
             query = query.where(Ad.status == status)
@@ -205,9 +214,21 @@ class PostgresRepository:
 
         # Apply date filters
         if date_from:
-            query = query.where(Insight.date >= date_from)
+            try:
+                date_from_val = datetime.strptime(date_from, "%Y-%m-%d").date()
+            except ValueError:
+                logger.warning("Invalid date_from format: %s, ignoring filter", date_from)
+                date_from_val = None
+            if date_from_val:
+                query = query.where(Insight.date >= date_from_val)
         if date_to:
-            query = query.where(Insight.date <= date_to)
+            try:
+                date_to_val = datetime.strptime(date_to, "%Y-%m-%d").date()
+            except ValueError:
+                logger.warning("Invalid date_to format: %s, ignoring filter", date_to)
+                date_to_val = None
+            if date_to_val:
+                query = query.where(Insight.date <= date_to_val)
 
         # Apply campaign filter by joining through ads and ad_sets
         if campaign_id:
@@ -234,7 +255,9 @@ class PostgresRepository:
                 "cpc": float(insight.cpc) if insight.cpc else None,
                 "cpm": float(insight.cpm) if insight.cpm else None,
                 "conversions": insight.conversions,
-                "conversion_value": float(insight.conversion_value) if insight.conversion_value else None,
+                "conversion_value": (
+                    float(insight.conversion_value) if insight.conversion_value else None
+                ),
                 "created_at": insight.created_at.isoformat() if insight.created_at else None,
                 "updated_at": insight.updated_at.isoformat() if insight.updated_at else None
             }
