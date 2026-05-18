@@ -83,9 +83,10 @@ export default function DashboardPage() {
       params.set("offset", String(offset));
       params.set("limit", String(limit));
 
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const [campaignRes, insightsRes] = await Promise.all([
         fetch(`/api/campaigns?${params}`),
-        fetch("/api/insights?date_from=2024-01-01"),
+        fetch(`/api/insights?date_from=${thirtyDaysAgo}`),
       ]);
 
       if (!campaignRes.ok) throw new Error(`Campaigns API: ${campaignRes.status}`);
