@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -25,6 +26,15 @@ def mock_db_session():
     app.dependency_overrides.pop(get_db, None)
     app.dependency_overrides.pop(get_readonly_db, None)
 
+@pytest.fixture(autouse=True)
+def mock_summarize(mock_llm_service):
+    mock_llm_service.summarize_results = AsyncMock(return_value={
+        "success": True,
+        "summary": "No data found for your query. Try a different date range or campaign.",
+        "error": ""
+    })
+    return mock_llm_service.summarize_results
+
 @pytest.fixture
 def mock_llm_service():
     with patch('app.api.v1.router.llm_service') as mock_llm:
@@ -40,8 +50,24 @@ def mock_sql_validator():
 def _make_db_result(keys, rows):
     mock_result = MagicMock()
     mock_result.keys.return_value = keys
+    mock_result.fetchone.return_value = rows[0] if rows else None
     mock_result.fetchall.return_value = rows
     return mock_result
+
+def _prepend_data_context(side_effect):
+    """Prepend mock results for the 3 data-context queries to an execute side_effect."""
+    data_context_results = [
+        _make_db_result(["min", "max"], [(date(2026, 3, 19), date(2026, 3, 19))]),
+        _make_db_result(["name"], [("Campaign A",), ("Campaign B",), ("Campaign C",)]),
+        _make_db_result(["count"], [(100,)]),
+    ]
+    if isinstance(side_effect, list):
+        return data_context_results + side_effect
+    return data_context_results + [side_effect]
+
+def _data_context_side_effect():
+    """Return a side_effect list that only handles the 3 data-context queries."""
+    return _prepend_data_context([])
 
 def test_chat_endpoint_success(mock_db_session, mock_llm_service, mock_sql_validator):
     mock_llm_service.generate_sql = AsyncMock(return_value={
@@ -88,10 +114,14 @@ def test_chat_endpoint_sql_generation_failure(mock_db_session, mock_llm_service)
         "sql": "",
         "error": "Failed to generate SQL"
     })
+    mock_db_session.execute.side_effect = _data_context_side_effect()
 
     response = client.post("/api/chat", json={"query": "Invalid question"})
-    assert response.status_code == 400
-    assert "I couldn't generate a valid query" in response.json()["message"]
+    assert response.status_code == 200
+    data = response.json()
+    assert "answer" in data
+    assert data["sql"] is None
+    assert data["data"] == []
 
 def test_chat_endpoint_sql_validation_failure(
     mock_db_session, mock_llm_service, mock_sql_validator
@@ -102,10 +132,14 @@ def test_chat_endpoint_sql_validation_failure(
     ])
 
     mock_sql_validator.validate_sql.return_value = (False, "DDL operations are not allowed")
+    mock_db_session.execute.side_effect = _data_context_side_effect()
 
     response = client.post("/api/chat", json={"query": "Delete all campaigns"})
-    assert response.status_code == 400
-    assert "I couldn't generate a valid query after multiple attempts" in response.json()["message"]
+    assert response.status_code == 200
+    data = response.json()
+    assert "answer" in data
+    assert data["sql"] is None
+    assert data["data"] == []
 
 def test_chat_endpoint_sql_execution_failure(mock_db_session, mock_llm_service, mock_sql_validator):
     mock_llm_service.generate_sql = AsyncMock(side_effect=[
@@ -113,14 +147,17 @@ def test_chat_endpoint_sql_execution_failure(mock_db_session, mock_llm_service, 
         {"success": True, "sql": "SELECT * FROM another_table", "error": ""},
     ])
 
-    mock_db_session.execute.side_effect = [
+    mock_db_session.execute.side_effect = _prepend_data_context([
         Exception("Table doesn't exist"),
         Exception("Repair also failed"),
-    ]
+    ])
 
     response = client.post("/api/chat", json={"query": "Show me nonexistent data"})
-    assert response.status_code == 400
-    assert "I couldn't execute a valid query" in response.json()["message"]
+    assert response.status_code == 200
+    data = response.json()
+    assert "answer" in data
+    assert data["sql"] is None
+    assert data["data"] == []
 
 def test_chat_endpoint_no_data_found(mock_db_session, mock_llm_service, mock_sql_validator):
     mock_llm_service.generate_sql = AsyncMock(return_value={

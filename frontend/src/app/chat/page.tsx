@@ -8,6 +8,7 @@ interface Message {
   content: string;
   isUser: boolean;
   sql?: string;
+  data?: Record<string, unknown>[];
   isLoading?: boolean;
   isError?: boolean;
 }
@@ -54,7 +55,8 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, loadingMessage]);
 
     try {
-      const response = await fetch("/api/chat", {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await fetch(`${API}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: userMessage.content }),
@@ -85,6 +87,7 @@ export default function ChatPage() {
           content: data.answer || "No response from the server.",
           isUser: false,
           sql: data.sql,
+          data: data.data,
         },
       ]);
     } catch (err) {
@@ -107,6 +110,37 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const DataTable = ({ data }: { data: Record<string, unknown>[] }) => {
+    if (!data.length) return null;
+    const cols = Object.keys(data[0]);
+    return (
+      <div className="mt-3 overflow-x-auto border border-edge rounded-md">
+        <table className="w-full text-xs font-mono">
+          <thead>
+            <tr className="bg-elevated/50">
+              {cols.map((col) => (
+                <th key={col} className="px-3 py-2 text-left text-muted font-medium uppercase tracking-wider whitespace-nowrap">
+                  {col.replace(/_/g, " ")}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-edge">
+            {data.map((row, i) => (
+              <tr key={i} className="hover:bg-elevated/30">
+                {cols.map((col) => (
+                  <td key={col} className="px-3 py-2 text-cream whitespace-nowrap">
+                    {String(row[col] ?? "\u2014")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
   const SQLBlock = ({ sql, id }: { sql: string; id: string }) => {
@@ -168,7 +202,7 @@ export default function ChatPage() {
             <EmptyState
               variant="chat"
               title="Ask about your ad data"
-              description='Ask questions like "What was my top performing campaign last month?" or "Show me CTR trends for Q2."'
+              description='Ask questions like "What was my top performing campaign of all time?" or "What is the average CTR?"'
             />
           ) : (
             <div className="max-w-3xl mx-auto px-10 py-8 space-y-6">
@@ -208,6 +242,9 @@ export default function ChatPage() {
                         </p>
                         {message.sql && (
                           <SQLBlock sql={message.sql} id={message.id} />
+                        )}
+                        {message.data && message.data.length > 0 && (
+                          <DataTable data={message.data} />
                         )}
                       </>
                     )}

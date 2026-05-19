@@ -17,12 +17,6 @@ describe("Header", () => {
     expect(screen.getByText("Chat")).toBeInTheDocument();
   });
 
-  it("renders query button", () => {
-    render(<Header />);
-    const buttons = screen.getAllByText("Query Your Data");
-    expect(buttons.length).toBeGreaterThanOrEqual(1);
-  });
-
   it("has menu toggle button for mobile", () => {
     render(<Header />);
     const menuBtn = screen.getByLabelText("Open menu");

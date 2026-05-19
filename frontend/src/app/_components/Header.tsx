@@ -38,27 +38,6 @@ export default function Header() {
             </Link>
           </nav>
         </div>
-        <div className="flex items-center space-x-3">
-          <Link href="/chat" className="btn-primary text-sm py-2.5 px-5 hidden md:inline-flex">
-            Query Your Data
-          </Link>
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden w-10 h-10 flex items-center justify-center rounded-md text-cream hover:bg-surface transition-colors"
-            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={isMenuOpen}
-          >
-            {isMenuOpen ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            )}
-          </button>
-        </div>
       </div>
 
       {isMenuOpen && (
@@ -82,13 +61,6 @@ export default function Header() {
                 className="px-4 py-3 text-base font-medium text-cream rounded-md hover:bg-elevated transition-colors"
               >
                 Chat
-              </Link>
-              <Link
-                href="/chat"
-                onClick={() => setIsMenuOpen(false)}
-                className="btn-primary text-sm py-3 px-4 mt-2"
-              >
-                Query Your Data
               </Link>
             </nav>
           </div>
