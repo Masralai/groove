@@ -2,55 +2,41 @@
 
 Production-ready service integrating with the Meta Marketing API to fetch ads data into PostgreSQL + MongoDB, with a natural language chatbot powered by OpenRouter (remote) or LM Studio (local).
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Data Model](#data-model)
-- [API Endpoints](#api-endpoints)
-- [Technology Stack](#technology-stack)
-- [Setup and Installation](#setup-and-installation)
-- [Environment Configuration](#environment-configuration)
-- [Running the Application](#running-the-application)
-- [Testing](#testing)
-- [Prompt Engineering](#prompt-engineering)
-- [Security](#security)
-- [Scaling](#scaling)
-- [Project Status](#project-status)
-- [Future Work](#future-work)
-- [Gotchas & Notes](#gotchas--notes)
-
 ## Quickstart
 
-After `docker compose up --build`, all services start. Open a terminal to chat with your data:
+```bash
+# 1. Clone, configure, and start everything
+cp .env.example .env
+# Edit .env — paste your Meta access token, ad account ID, and OpenRouter API key
+docker compose up --build
+```
+
+Once running, open **[http://localhost:3000](http://localhost:3000)** in your browser:
+
+| Page | What you can do |
+|------|----------------|
+| **Dashboard** (`/dashboard`) | View KPI cards (spend, impressions, clicks, CTR), filter campaigns by status, change the date range, trigger a data sync |
+| **Chat** (`/chat`) | Ask questions in plain English — "How many campaigns?" or "Total spend?" |
+
+Or query from the terminal:
 
 ```bash
-# Query 1 — Count campaigns
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"query":"How many campaigns do we have?"}'
-
-# Query 2 — Check last week's performance
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"query":"Which campaign had the highest ROI last week?"}'
-
-# Query 3 — Ask about specific days
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"query":"How much did we spend on Tuesday?"}'
 ```
 
-Each request returns a JSON response with three fields:
+Returns:
+
 ```json
-{"answer": "...", "sql": "...", "data": [...]}
+{"answer": "There are 3 campaigns in total.", "sql": "SELECT COUNT(*) FROM campaigns", "data": [{"campaign_count": 3}]}
 ```
 
-- **answer** — plain-English explanation of the result
+- **answer** — plain-English explanation
 - **sql** — the generated PostgreSQL query (or `null` if text-only)
-- **data** — query results as an array of row objects
+- **data** — query result rows
 
-> **Note**: LM Studio processes queries on your local hardware — complex reasoning takes about **1–2 minutes** per query. The web UI is available at [http://localhost:3000/chat](http://localhost:3000/chat).
+> **Note**: With OpenRouter (default), typical response time is **2–15s** per query (free tier may spike to 30–50s). With LM Studio locally, queries take **1–2 minutes**. The web UI is at [http://localhost:3000/chat](http://localhost:3000/chat).
 
 ## Overview
 
@@ -127,7 +113,7 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 | Meta API | `facebook_business` SDK (REST) |
 | LLM | OpenRouter or LM Studio (configurable via `LLM_PROVIDER`) |
 | Frontend | Next.js 16, TypeScript, Tailwind CSS v4 |
-| Testing | pytest, pytest-asyncio, testcontainers, httpx_mock / responses |
+| Testing | pytest, pytest-asyncio, testcontainers, respx |
 | Infrastructure | Docker Compose (4 services) |
 | Config | YAML (`config/sources.yaml`) |
 
@@ -137,7 +123,7 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
 
 - Docker and Docker Compose
 - Python 3.12+ (for local development)
-- Meta Marketing API access token
+- Meta Marketing API access token (generate one at [developers.facebook.com/tools/access_token](https://developers.facebook.com/tools/access_token/); short-lived tokens expire hourly — use a long-lived token or refresh as needed)
 - OpenRouter API key (for remote LLM) **or** LM Studio running locally with a compatible model (e.g. `gemma-4-E4B-it-GGUF` on port 1234)
 
 ### Installation Steps
@@ -166,7 +152,13 @@ insights  (id TEXT PK, ad_id FK, date DATE, impressions INT, clicks INT, spend N
     MONGODB_URI=mongodb://localhost:27017/groove
     ```
 
-4. Build and start the services:
+4. (Optional) The frontend auto-detects the backend URL. To override, set `NEXT_PUBLIC_API_URL` in `frontend/.env`:
+
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   ```
+
+5. Build and start the services:
 
    ```bash
    docker compose up --build
@@ -193,7 +185,7 @@ Optional variables with defaults in code:
 - `SECRET_KEY`: For session security (default: "dev-secret-key-change-in-production")
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: Token expiration time (default: 8 days)
 - `POSTGRES_READONLY_DSN`: Read-only PostgreSQL user for LLM service (default: uses same as `POSTGRES_DSN`)
-- `CORS_ORIGINS`: Comma-separated allowed origins (default: `http://localhost:3000,http://localhost:8000`)
+- `CORS_ORIGINS`: Comma-separated allowed origins (default: `http://localhost:3000,http://localhost:8000,http://frontend:3000`)
 
 ## Running the Application
 
@@ -246,7 +238,7 @@ npm install
 npm run dev
 ```
 
-The frontend dev server proxies `/api/*` calls to the backend via Next.js rewrites. Verify the full chain:
+Client-side pages fetch the backend directly at `http://localhost:8000` (configurable via `NEXT_PUBLIC_API_URL`). Next.js rewrites for `/api/*` are still configured and work for server-side requests — useful for verifying the chain:
 
 ```bash
 curl http://localhost:3000/api/health
@@ -275,6 +267,19 @@ Test suite includes:
 - Unit tests for LLM SQL generation
 - Unit tests for SQL validation
 - Integration tests for full chat flow
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|------|
+| Backend won't start | Missing env vars or database not ready | Run `docker compose logs backend` and check for missing credentials |
+| Dashboard shows "No campaigns found" | Data hasn't been synced yet | Run `curl -X POST http://localhost:8000/api/fetch` or click "Sync Data" in the dashboard |
+| Chat returns `null` for SQL | LLM couldn't generate a valid query | Check the query makes sense with available data (date ranges, campaign names). Try rephrasing. |
+| Chat returns 500 / empty answers | LLM provider misconfigured | Verify `LLM_PROVIDER` in `.env` matches your setup and the API key is valid. Run `curl http://localhost:8000/api/health`. |
+| Frontend shows errors on load | `NEXT_PUBLIC_API_URL` points to wrong backend | Ensure `frontend/.env` has `NEXT_PUBLIC_API_URL=http://localhost:8000` |
+| Meta sync fails (401) | Access token expired | Refresh your token at [developers.facebook.com/tools/access_token](https://developers.facebook.com/tools/access_token/) |
+| Slow chat responses | Free OpenRouter throttling or slow hardware | Switch to a paid OpenRouter model (`OPENROUTER_MODEL`) or use LM Studio with a smaller model |
+
 
 ## Prompt Engineering
 
@@ -317,15 +322,3 @@ The LLM uses a structured 3-part system prompt for reliable SQL generation:
 
 For connection scaling, the backend uses a pool of 20 connections (max overflow 10) with a 10-second pool timeout. The PostgreSQL advisory lock prevents concurrent sync in multi-worker deployments.
 
-## Gotchas & Notes
-
-1. **Meta API creds**: Needed for `POST /api/fetch` to work. Without them, the chat can still answer based on seeded/empty DB data.
-2. **LLM provider**: Set `LLM_PROVIDER=openrouter` (requires `OPENROUTER_API_KEY`) or `LLM_PROVIDER=lmstudio` (requires LM Studio running on `localhost:1234`). Default is `openrouter`.
-3. **APScheduler + multi-worker**: The PG advisory lock prevents double-fires. For production, use a dedicated scheduler container.
-4. **MongoDB vs JSONB kept separate** — not merged per PRD decision. If asked why, refer to DECISIONS.md #1.
-5. **GraphQL rejected** — REST/SDK chosen. See DECISIONS.md #15 for rationale.
-6. **Frontend DESIGN.md**: See `DESIGN.md` at project root for the design system reference (Grafbase-inspired engineering aesthetic). The Tailwind v4 `@theme` block in `frontend/styles/globals.css` implements these tokens.
-7. **LLM uses 2-call pattern**: SQL gen → execute → summarize. With LM Studio locally, queries take ~1-2 min (model reasoning). With OpenRouter (cloud), latency drops to 2-15s.
-8. **Production PostgreSQL user**: For security, use a dedicated read-only user for the LLM service (see DECISIONS.md #11).
-9. **Frontend docker-compose**: The `frontend` service in `docker-compose.yml` builds with `API_URL=http://backend:8000` and exposes port 3000. All four services (postgres, mongodb, backend, frontend) start together with `docker compose up --build`.
-10. **Full-stack verification**: The frontend at `localhost:3000` proxies `/api/*` to the backend via Next.js rewrites. `curl localhost:3000/api/health` works without hitting the backend directly. Note: the proxy can be unreliable for long-running queries due to `network_mode: host` — use direct backend (`:8000`) for terminal use.

@@ -129,21 +129,23 @@ for attempt in range(MAX_RETRIES):
 
 ## 7. 2-Call LLM Latency
 
-**Question:** "Every chat is two Gemini calls (SQL gen → execute → summarize). That's 3-5 seconds per question. At 100 concurrent users, what's p95 latency?"
+**Question:** "Every chat is two LLM calls (SQL gen → execute → summarize). That's 3-5 seconds per question. At 100 concurrent users, what's p95 latency?"
 
 **Decision:** Acceptable for this scope with monitoring for future optimization.
 
 **Analysis:**
 
 - Current context: Single-user internal tool, not a public-facing product
-- Gemini 1.5 Flash: ~1-2s per call. Total round-trip: ~3-4s
+- OpenRouter (default, remote): ~2-15s per call (free tier may spike to 30-50s)
+- LM Studio (local): ~1-2 minutes per query (model reasoning on local hardware)
 - SQL execution on PostgreSQL with proper indexes: <50ms
+- Provider is configurable via `LLM_PROVIDER` env var
 
 **Future optimizations (noted, not implemented):**
 
 - Stream the SQL generation response while executing (parallelize)
 - Cache common query patterns (e.g., "spend this week")
-- Move to single-call approach: let Gemini return both SQL and summary in one structured response, then execute and validate separately
+- Move to single-call approach: let the LLM return both SQL and summary in one structured response, then execute and validate separately
 - Use persistent connections and connection pooling to minimize overhead
 
 ---
@@ -175,7 +177,7 @@ Also, which campaign(s) or date range?"
 
 **Decision:** Keyword-based table selection for schema injection.
 
-**Current (4 tables):** Full DDL fits easily in Gemini 1.5 Flash (1M context).
+**Current (4 tables):** Full DDL fits easily in any modern LLM context window (128K+).
 
 **Future strategy:**
 
@@ -198,7 +200,7 @@ Also, which campaign(s) or date range?"
 2. **Input sanitization**: Strip obvious instruction injections ("ignore", "forget instructions", "your new role is")
 3. **SQL validation** (Layer 6 above): Rejects `pg_catalog`, `pg_*`, system table references
 4. **Read-only transaction**: PostgreSQL engine rejects any write attempt regardless of what SQL the LLM generates
-5. **Selective error reporting**: Error messages sent back to Gemini are sanitized — no raw PostgreSQL error messages that could reveal table names or schema structure
+5. **Selective error reporting**: Error messages sent back to the LLM are sanitized — no raw PostgreSQL error messages that could reveal table names or schema structure
 
 ---
 
@@ -266,7 +268,6 @@ engine = create_async_engine(
 
 - Separate connection for `/health` endpoint (uses `connect()` not from pool)
 - LLM agent SQL execution has a 30s statement timeout (set via `SET statement_timeout = '30s'`)
-- Pool metrics exposed via `/metrics` endpoint (pool size, available, active connections)
 
 ---
 
@@ -308,24 +309,18 @@ Rationale:
 
 ---
 
-## 16. LLM Framework Choice: Direct SDK vs. Langchain/LlamaIndex
+## 16. LLM Framework Choice: Provider-Agnostic HTTP vs. Langchain/LlamaIndex
 
-Question: "Why use the raw Gemini API via `google-genai-sdk` instead of LLM frameworks like Langchain or LlamaIndex which offer abstractions, chains, and agents?"
+Question: "Why use raw HTTP calls to the LLM API instead of frameworks like Langchain or LlamaIndex?"
 
-Decision: Use direct Gemini SDK (`google-genai-sdk`) without additional LLM frameworks.
+Decision: Use provider-agnostic HTTP calls (via `httpx`) to an OpenAI-compatible `/chat/completions` endpoint, supporting both OpenRouter (remote) and LM Studio (local) without additional LLM frameworks.
 
 Rationale:
 
-- **Security Control**: The LLM agent generates SQL that must pass through strict validation layers (comment stripping, single-statement enforcement, whitelist/blacklist patterns, read-only transactions). Direct SDK usage provides precise control over prompt engineering and response handling, critical for maintaining these security guarantees. Framework abstractions could obscure the exact prompts being sent, complicating security audits.
-  
-- **Use Case Simplicity**: The LLM usage is strictly defined: text-to-SQL generation → execution → result summarization (2-call pattern). There's no need for complex chains, agents, retrieval augmentation, or multi-step reasoning that frameworks like Langchain/LlamaIndex are designed to provide. Using a heavyweight framework adds unnecessary complexity for this narrow, well-defined flow.
-  
-- **Transparency & Debugging**: The system returns both `answer` and `sql` in chat responses for transparency and trust-building. Direct SDK usage makes it trivial to log, inspect, and debug the exact prompts sent to Gemini and responses received, which is essential for the ambiguity handling and clarification logic. Framework layers would complicate this transparency.
-  
-- **Performance Predictability**: With direct SDK usage, latency characteristics are predictable and optimizable (as analyzed in Decision #7). Framework introductions add abstraction overhead that could impact the 3-4s round-trip time without providing proportional benefits for this use case.
-  
-- **Alignment with Specifications**: All technical documentation consistently specifies `google-genai-sdk` as the LLM layer (PRD.md tech stack, HANDOVER.md dependencies, Implementation Plan). Deviating to frameworks would require re-justification and could introduce inconsistencies with the approved architecture.
-  
-- **Operational Simplicity**: One fewer dependency to manage, version, secure, and troubleshoot. Reduces potential attack surface from transitive dependencies and aligns with the principle of using the minimal toolset necessary to fulfill requirements.
+- **Provider flexibility**: Using the OpenAI-compatible API format means the same code works with OpenRouter, LM Studio, or any provider supporting the same interface. Switching providers is a one-line config change (`LLM_PROVIDER`) — no SDK changes needed.
+- **Security Control**: The LLM agent generates SQL that must pass through strict validation layers (comment stripping, single-statement enforcement, whitelist/blacklist patterns, read-only transactions). Direct HTTP control provides precise oversight over prompts and responses without framework abstractions obscuring the data flow.
+- **Use Case Simplicity**: The LLM usage is strictly defined: text-to-SQL generation → execution → result summarization (2-call pattern). There's no need for complex chains, agents, retrieval augmentation, or multi-step reasoning that frameworks like Langchain/LlamaIndex are designed to provide.
+- **Transparency & Debugging**: The system returns both `answer` and `sql` in chat responses for transparency and trust-building. Raw HTTP calls make it trivial to log, inspect, and debug the exact prompts and responses, which is essential for the ambiguity handling and clarification logic.
+- **Minimal dependencies**: No heavy framework dependencies — just `httpx` for HTTP and standard library types. Reduces attack surface from transitive dependencies.
 
 **Note**: This decision does not preclude evaluating LLM frameworks in future phases if requirements evolve to include complex agent-based workflows, multi-modal interactions, or sophisticated retrieval-augmented generation patterns that justify the added complexity.

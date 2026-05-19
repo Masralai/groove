@@ -17,9 +17,5 @@ describe("Header", () => {
     expect(screen.getByText("Chat")).toBeInTheDocument();
   });
 
-  it("has menu toggle button for mobile", () => {
-    render(<Header />);
-    const menuBtn = screen.getByLabelText("Open menu");
-    expect(menuBtn).toBeInTheDocument();
-  });
+  // Mobile menu toggle button was removed — no longer tested
 });

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
 
 from app.transform.pipeline import (
@@ -22,7 +22,7 @@ class TestParseDatetime:
         assert result.day == 15
         assert result.hour == 10
         assert result.minute == 30
-        assert result.tzinfo == timezone.utc
+        assert result.tzinfo == UTC
 
     def test_iso_format_with_ms(self):
         result = _parse_datetime("2023-01-15T10:30:00.123+00:00")
