@@ -49,20 +49,68 @@ The system consists of two main parts:
 
 ## Architecture
 
-```
-┌────────────┐    ┌─────────────────────────────┐    ┌──────────────┐
-│  Next.js   │    │         FastAPI             │    │  PostgreSQL  │
-│  :3000     │───▶│         :8000               │───▶│  :5432       │
-│            │    │                             │    │              │
-│  Dashboard │    │  Fetch Router  Chat Router  │    │  analytics   │
-│  Chat Page │    │  DataSyncSvc   LLM Service  │    │  (4 tables)  │
-└────────────┘    │  MetaAPISvc    SQL Validator│    └──────────────┘
-                  │  Config (YAML)              │
-                  │  APScheduler                │    ┌──────────────┐
-                  │                             │───▶│  MongoDB     │
-                  └─────────────────────────────┘    │  :27017      │
-                                                     │  raw staging │
-                                                     └──────────────┘
+```mermaid
+---
+title: Groove System Architecture
+---
+flowchart TD
+    User(("👤 User")) -->|":3000"| Next["Next.js :3000"]
+
+    subgraph Next["Next.js Frontend"]
+        Dash["Dashboard\nKPI Cards, Campaigns Table\nDate Range Picker"]
+        Chat["Chat\nMessage List, SQL Block\nData Table"]
+    end
+
+    subgraph API["FastAPI Backend"]
+        direction LR
+        subgraph Routes["API Routes"]
+            FR["/api/fetch\nTrigger Sync"]
+            CR["/api/chat\nNL Query → SQL"]
+            IR["/api/insights\n?date_from, ?date_to\n?campaign_id"]
+            CaR["/api/campaigns\n?status, ?offset, ?limit"]
+            HeR["/api/health"]
+        end
+
+        subgraph Services["Core Services"]
+            DS["Data Sync Service\nOrchestrate\nfetch → transform → upsert"]
+            MA["MetaAPI Service\nREST + facebook_business SDK\nPagination + Rate-Limit Backoff"]
+            TP["Transform Pipeline\nRaw JSON → Typed Records\nField Mapping"]
+            LLM["LLM Service\nOpenRouter / LM Studio\nText-to-SQL + Summarization"]
+            SV["SQL Validator\nRegex Block + Single-Statement\nRead-Only Transaction"]
+        end
+
+        AP["APScheduler\nDaily Sync at Midnight"]
+    end
+
+    subgraph DB["Databases"]
+        PG[("🐘 PostgreSQL :5432\nAnalytics Layer\ncampaigns, ad_sets\nads, insights")]
+        MG[("🍃 MongoDB :27017\nRaw Staging Layer\ncampaigns_raw, ad_sets_raw\nads_raw, insights_raw")]
+    end
+
+    subgraph External["External"]
+        MetaAPI("🌐 Meta Marketing API\nGraph API / REST")
+        LLMProvider("{ OpenRouter / LM Studio }")
+    end
+
+    Next --> Routes
+
+    FR --> DS
+    DS --> MA --> MetaAPI
+    DS --> TP
+    TP --> PG
+    DS --> MG
+    AP --> DS
+
+    CR --> LLM
+    CR --> SV
+    CR --> PG
+    CR --> IR
+    CR --> CaR
+    CaR --> PG
+    IR --> PG
+    HeR --> PG
+
+    LLM --> LLMProvider
 ```
 
 ### Services
@@ -306,7 +354,7 @@ The LLM uses a structured 3-part system prompt for reliable SQL generation:
 | Credential exposure | `.env` in `.gitignore`; production uses environment variables, not checked-in configs |
 | Multi-statement attacks | Reject queries with semicolons in the body (after string-literal stripping) |
 
-**Production recommendation**: Create a dedicated PostgreSQL user with SELECT-only grants on the 4 analytics tables and wire it as `POSTGRES_READONLY_DSN` for the LLM service. See `SECURITY.md` for setup details.
+**Production recommendation**: Create a dedicated PostgreSQL user with SELECT-only grants on the 4 analytics tables and wire it as `POSTGRES_READONLY_DSN` for the LLM service.
 
 ## Scaling
 
