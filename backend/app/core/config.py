@@ -31,11 +31,20 @@ class Settings(BaseSettings):
     POSTGRES_DSN: PostgresDsn
     POSTGRES_READONLY_DSN: PostgresDsn | None = None  # type: ignore[assignment]
 
+    @field_validator("POSTGRES_DSN", mode="before")
+    @classmethod
+    def add_async_driver(cls, v: Any) -> Any:
+        if isinstance(v, str) and v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
+
     @field_validator("POSTGRES_READONLY_DSN", mode="before")
     @classmethod
     def blank_string_to_none(cls, v: Any) -> Any:
         if isinstance(v, str) and v.strip() == "":
             return None
+        if isinstance(v, str) and v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
         return v
     MONGODB_URI: str
 

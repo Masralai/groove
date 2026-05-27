@@ -55,7 +55,7 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, loadingMessage]);
 
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const API = process.env.NEXT_PUBLIC_API_URL || "";
       const response = await fetch(`${API}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

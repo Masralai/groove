@@ -57,7 +57,7 @@ export default function DashboardPage() {
         params.set("offset", String(offset));
         params.set("limit", String(limit));
 
-        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const API = process.env.NEXT_PUBLIC_API_URL || "";
         const today = new Date();
         const insightsParams = new URLSearchParams();
         if (selectedRange.ms > 0) {
@@ -105,7 +105,7 @@ export default function DashboardPage() {
     setSyncing(true);
     setSyncResult(null);
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const API = process.env.NEXT_PUBLIC_API_URL || "";
       const res = await fetch(`${API}/api/fetch`, { method: "POST" });
       if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
       const body = await res.json();

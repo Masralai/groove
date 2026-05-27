@@ -370,3 +370,100 @@ The LLM uses a structured 3-part system prompt for reliable SQL generation:
 
 For connection scaling, the backend uses a pool of 20 connections (max overflow 10) with a 10-second pool timeout. The PostgreSQL advisory lock prevents concurrent sync in multi-worker deployments.
 
+## Deployment
+
+### Architecture
+
+```
+Browser → Vercel (Next.js) → Render (FastAPI backend)
+                                ├── PostgreSQL (Render Managed)
+                                └── MongoDB (MongoDB Atlas)
+```
+
+The Next.js frontend uses [rewrites](https://nextjs.org/docs/app/api-reference/next-config-js/rewrites) to proxy `/api/*` requests server-side to the Render backend. This means the browser talks only to Vercel — no CORS issues, no exposed backend URLs.
+
+### Prerequisites
+
+- A [Vercel](https://vercel.com) account
+- A [Render](https://render.com) account
+- A [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) free cluster (M0)
+- Your Meta API credentials and OpenRouter API key
+
+### Step 1: MongoDB Atlas
+
+1. Create a free M0 cluster at [MongoDB Atlas](https://cloud.mongodb.com)
+2. Under **Database Access** → **Add New Database User** (e.g. `groove` / password)
+3. Under **Network Access** → **Add IP Address** → `0.0.0.0/0` (allow all)
+4. Click **Connect** → **Drivers** → copy the connection string (looks like `mongodb+srv://groove:<password>@cluster0.xxxxx.mongodb.net/groove`)
+
+### Step 2: Deploy Backend to Render
+
+**Using the Render Dashboard (recommended):**
+
+1. Go to [Render Dashboard](https://dashboard.render.com) → **New +** → **Web Service**
+2. Connect your GitHub repo and select it
+3. Fill in:
+   - **Name**: `groove-backend`
+   - **Runtime**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - **Plan**: Free
+4. Add environment variables:
+
+   | Variable | Value |
+   |---|---|
+   | `META_ACCESS_TOKEN` | Your Meta API token |
+   | `META_AD_ACCOUNT_ID` | `act_<your-account-id>` |
+   | `OPENROUTER_API_KEY` | Your OpenRouter API key |
+   | `LLM_PROVIDER` | `openrouter` |
+   | `OPENROUTER_MODEL` | `nvidia/nemotron-3-super-120b-a12b:free` |
+   | `CORS_ORIGINS` | `https://groove-<your-username>.vercel.app` |
+   | `SECRET_KEY` | A strong random string |
+   | `MONGODB_URI` | Your MongoDB Atlas connection string |
+
+5. **Create a PostgreSQL database**: Go to Render Dashboard → **New +** → **PostgreSQL**
+   - **Name**: `groove-postgres`
+   - **Plan**: Free
+   - Once created, copy the **Internal Database URL**
+6. Go back to your Web Service → **Environment** → add:
+   - `POSTGRES_DSN`: Paste the Internal Database URL — the backend will auto-convert `postgresql://` to `postgresql+asyncpg://`
+7. Deploy
+
+**Using `render.yaml` (Blueprint):**
+
+The repo includes `backend/render.yaml` for infrastructure-as-code. To use it:
+
+1. Push `backend/render.yaml` to your repo
+2. In Render Dashboard → **Blueprint** → connect your repo
+3. Fill in the `sync: false` variables (`MONGODB_URI`, `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`, `OPENROUTER_API_KEY`) in the Render UI
+4. Update `CORS_ORIGINS` in `render.yaml` to your Vercel domain before pushing
+
+### Step 3: Deploy Frontend to Vercel
+
+1. Go to [Vercel Dashboard](https://vercel.com) → **Add New** → **Project**
+2. Import your GitHub repo
+3. Configure:
+   - **Framework Preset**: `Next.js`
+   - **Root Directory**: `frontend`
+4. Add this environment variable (sets the rewrite target for server-side API proxying):
+
+   | Variable | Value |
+   |---|---|
+   | `API_URL` | `https://groove-backend.onrender.com` |
+
+   > Do **not** set `NEXT_PUBLIC_API_URL`. The client-side code now uses relative `/api/*` URLs, which the Next.js server rewrites to your Render backend.
+5. Deploy
+
+### Verifying the Deployment
+
+```bash
+# Health check
+curl https://groove-backend.onrender.com/api/health
+
+# Should see the frontend
+open https://groove-<your-username>.vercel.app
+
+# Trigger a Meta data sync
+curl -X POST https://groove-backend.onrender.com/api/fetch
+```
+
